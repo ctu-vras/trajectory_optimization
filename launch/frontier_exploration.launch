@@ -8,7 +8,7 @@
 	<node name="playbag" pkg="rosbag" type="play" args="--clock -r 3.33 $(arg bag_filename)" />
 
 	<!-- planner -->
-	<!-- <node pkg="frontier_exploration" type="planner.py" name="planner" output="screen"/> -->
+	<node pkg="frontier_exploration" type="planner.py" name="planner" output="screen"/>
 
 	<!-- launch file include example -->
 	<!-- <include file="$(find frontier_exploration)/launch/frontier_exploration.launch"/> -->

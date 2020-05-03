@@ -144,41 +144,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        antenna:
-          Value: false
         base_link:
           Value: true
         base_link_orig:
           Value: false
-        battery:
-          Value: false
-        camera_0:
-          Value: false
-        camera_1:
-          Value: false
-        camera_2:
-          Value: false
-        camera_3:
-          Value: false
-        camera_4:
-          Value: false
-        camera_5:
-          Value: false
-        camera_link:
-          Value: false
-        camera_tripod_screw_link:
-          Value: false
         front_left_flipper:
           Value: false
-        front_left_flipper_end_point:
-          Value: false
         front_right_flipper:
-          Value: false
-        front_right_flipper_end_point:
-          Value: false
-        imu:
-          Value: false
-        jetson:
           Value: false
         laser:
           Value: false
@@ -187,7 +159,7 @@ Visualization Manager:
         left_track:
           Value: false
         map:
-          Value: false
+          Value: true
         odom:
           Value: false
         omnicam:
@@ -210,25 +182,13 @@ Visualization Manager:
           Value: false
         r6:
           Value: false
-        realsense_holder_part1:
-          Value: false
-        realsense_holder_part2:
-          Value: false
         rear_left_flipper:
           Value: false
-        rear_left_flipper_end_point:
-          Value: false
-        rear_right_box:
-          Value: false
         rear_right_flipper:
-          Value: false
-        rear_right_flipper_end_point:
           Value: false
         right_track:
           Value: false
         subt:
-          Value: false
-        top_box:
           Value: false
       Marker Scale: 1
       Name: TF
@@ -239,57 +199,16 @@ Visualization Manager:
         map:
           odom:
             base_link:
-              antenna:
-                {}
-              battery:
-                {}
-              imu:
-                {}
-              laser_base:
-                laser:
-                  {}
               left_track:
                 front_left_flipper:
-                  front_left_flipper_end_point:
-                    {}
-                rear_left_flipper:
-                  rear_left_flipper_end_point:
-                    {}
-              rear_right_box:
-                jetson:
                   {}
-                top_box:
-                  omnicam:
-                    camera_0:
-                      {}
-                    camera_1:
-                      {}
-                    camera_2:
-                      {}
-                    camera_3:
-                      {}
-                    camera_4:
-                      {}
-                    camera_5:
-                      {}
-                    pano:
-                      {}
-                    pano_seg:
-                      {}
-                    ptz:
-                      {}
-                    realsense_holder_part1:
-                      realsense_holder_part2:
-                        camera_tripod_screw_link:
-                          camera_link:
-                            {}
+                rear_left_flipper:
+                  {}
               right_track:
                 front_right_flipper:
-                  front_right_flipper_end_point:
-                    {}
+                  {}
                 rear_right_flipper:
-                  rear_right_flipper_end_point:
-                    {}
+                  {}
             base_link_orig:
               {}
         subt:
@@ -456,6 +375,29 @@ Visualization Manager:
       Topic: /subt_odom
       Unreliable: false
       Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /resultant_path
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

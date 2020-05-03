@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 import rospy
-from sensor_msgs.msg import PointCloud2, PointField
+from sensor_msgs.msg import PointCloud2
 import tf
+from nav_msgs.msg import Path
+from utils import publish_path
 
 import numpy as np
-from utils import pointcloud2_to_xyzrgb_array
-from utils import pc_to_voxel
-from utils import array_to_pointcloud2
-import time
+from pointcloud_utils import pointcloud2_to_xyzrgb_array
+from planning import breadth_first_search
+from planning import prune_path
+from planning import smooth_path
+from grid import create_grid
 
 
 class Planner:
@@ -22,7 +25,6 @@ class Planner:
         pc_sub = rospy.Subscriber(pc_topic, PointCloud2, self.pc_callback)
 
         self.tl = tf.TransformListener()
-
         self.goal = None
         self.local_map = None
 
@@ -45,31 +47,39 @@ class Planner:
     def local_map_callback(self, elev_map_pc_msg):
         elev_map = pointcloud2_to_xyzrgb_array(elev_map_pc_msg)
         self.local_map = elev_map
-        # print('X', np.min(pc_numpy[:,0]), np.max(pc_numpy[:,0]))
-        # print('Y', np.min(pc_numpy[:,1]), np.max(pc_numpy[:,1]))
-        # print('Z', np.min(pc_numpy[:,2]), np.max(pc_numpy[:,2]))
-        # voxel = pc_to_voxel(pc_numpy, resolution=0.15, x=(np.min(pc_numpy[:,0]), np.max(pc_numpy[:,0])),
-        #                                                y=(np.min(pc_numpy[:,1]), np.max(pc_numpy[:,1])),
-        #                                                z=(np.min(pc_numpy[:,2]), np.max(pc_numpy[:,2])))
-        # print(voxel.shape)
-        # voxel_msg = array_to_pointcloud2(voxel, stamp=pc_msg.header.stamp, frame_id=pc_msg.header.frame_id)
 
     def pc_callback(self, pc_msg):
         self.dynamic_pc = pointcloud2_to_xyzrgb_array(pc_msg)
 
 
+# main parameters
+map_res = 0.15
+margin = 0.2
+
 if __name__ == '__main__':
-    rospy.init_node('elev_map_subscriber')
+    rospy.init_node('path_planner')
     planner = Planner()
     
+    rate = rospy.Rate(0.33)
     while not rospy.is_shutdown():
-        # if planner.robot_pose is not None:
-        #     print(planner.robot_pose[:2])
-        if planner.local_map is not None and planner.dynamic_pc is not None:
-            path = '/home/ruslan/Desktop/CTU/data/'
-            np.save(path+'elev_map{}.npy'.format(time.time()), planner.local_map)
-            np.save(path+'dynamic_pc{}.npy'.format(time.time()), planner.dynamic_pc)
-            np.save(path+'robot_pose{}.npy'.format(time.time()), planner.robot_pose)
-            print("saved data")
-        time.sleep(3)
+        if planner.local_map is not None and planner.robot_pose is not None:
+            elev_map = planner.local_map; robot_pose = np.array(planner.robot_pose)
+            grid, elev_grid = create_grid(elev_map, map_res=0.15, safety_distance=0.2, margin=margin)
+            x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
+
+            # define start on a grid
+            robot_grid_pose = (robot_pose - [x_min, y_min, 0]) // map_res
+            start_grid = (int(robot_grid_pose[0]), int(robot_grid_pose[1]))
+
+            path_grid, goal_grid = breadth_first_search(grid, start_grid)
+            # transform path to map coordintes (m)
+            path = [(np.array(point)*0.15+[x_min, y_min]).tolist()+[elev_grid[point]] for point in path_grid]
+            if len(path)>0:
+                path = prune_path(path, 1e-3)
+                # path = smooth_path(np.array(path), vis=1)
+            path = np.array(path) - path[0,:] + robot_pose # start path exactly from robot location
+
+            # publish path here
+            publish_path(path, orient=[0,0,0,1], topic_name='resultant_path')
+        rate.sleep()
     
