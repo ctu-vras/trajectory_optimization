@@ -8,7 +8,7 @@ Panels:
         - /Grid1
         - /PointCloud21
         - /PointCloud22
-        - /TF1/Frames1
+        - /TF1
         - /PointCloud23
       Splitter Ratio: 0.47772276401519775
     Tree Height: 733
@@ -143,93 +143,93 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
         antenna:
-          Value: true
+          Value: false
         base_link:
           Value: true
         base_link_orig:
-          Value: true
+          Value: false
         battery:
-          Value: true
+          Value: false
         camera_0:
-          Value: true
+          Value: false
         camera_1:
-          Value: true
+          Value: false
         camera_2:
-          Value: true
+          Value: false
         camera_3:
-          Value: true
+          Value: false
         camera_4:
-          Value: true
+          Value: false
         camera_5:
-          Value: true
+          Value: false
         camera_link:
-          Value: true
+          Value: false
         camera_tripod_screw_link:
-          Value: true
+          Value: false
         front_left_flipper:
-          Value: true
+          Value: false
         front_left_flipper_end_point:
-          Value: true
+          Value: false
         front_right_flipper:
-          Value: true
+          Value: false
         front_right_flipper_end_point:
-          Value: true
+          Value: false
         imu:
-          Value: true
+          Value: false
         jetson:
-          Value: true
+          Value: false
         laser:
-          Value: true
+          Value: false
         laser_base:
-          Value: true
+          Value: false
         left_track:
-          Value: true
+          Value: false
         map:
-          Value: true
+          Value: false
         odom:
-          Value: true
+          Value: false
         omnicam:
-          Value: true
+          Value: false
         pano:
-          Value: true
+          Value: false
         pano_seg:
-          Value: true
+          Value: false
         ptz:
-          Value: true
+          Value: false
         r24:
-          Value: true
+          Value: false
         r25:
-          Value: true
+          Value: false
         r26:
-          Value: true
+          Value: false
         r4:
-          Value: true
+          Value: false
         r5:
-          Value: true
+          Value: false
         r6:
-          Value: true
+          Value: false
         realsense_holder_part1:
-          Value: true
+          Value: false
         realsense_holder_part2:
-          Value: true
+          Value: false
         rear_left_flipper:
-          Value: true
+          Value: false
         rear_left_flipper_end_point:
-          Value: true
+          Value: false
         rear_right_box:
-          Value: true
+          Value: false
         rear_right_flipper:
-          Value: true
+          Value: false
         rear_right_flipper_end_point:
-          Value: true
+          Value: false
         right_track:
-          Value: true
+          Value: false
         subt:
-          Value: true
+          Value: false
         top_box:
-          Value: true
+          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -484,25 +484,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 29.337947845458984
+      Distance: 35.3890380859375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 6.547056674957275
-        Y: 9.581965446472168
-        Z: -2.40918231010437
+        X: 10.880271911621094
+        Y: 5.769048690795898
+        Z: -3.4257397651672363
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6141166687011719
+      Pitch: 1.5597963333129883
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.223687171936035
+      Yaw: 4.728693008422852
     Saved: ~
 Window Geometry:
   Displays:

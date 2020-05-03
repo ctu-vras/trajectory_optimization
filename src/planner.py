@@ -12,21 +12,25 @@ import time
 
 
 class Planner:
-    def __init__(self, elev_map_topic='/exploration/local_elev'):
+    def __init__(self, elev_map_topic='/exploration/local_elev', pc_topic='/dynamic_point_cloud'):
         self.elev_map_topic = rospy.get_param('~pointcloud_topic', elev_map_topic)
         print("Subscribed to " + self.elev_map_topic)
-        pc_sub = rospy.Subscriber(elev_map_topic, PointCloud2, self.pc_callback)
+        local_map_sub = rospy.Subscriber(elev_map_topic, PointCloud2, self.local_map_callback)
+
+        self.pc_topic = rospy.get_param('~pointcloud_topic', pc_topic)
+        print("Subscribed to " + self.pc_topic)
+        pc_sub = rospy.Subscriber(pc_topic, PointCloud2, self.pc_callback)
 
         self.tl = tf.TransformListener()
 
         self.goal = None
         self.local_map = None
 
-    def get_robot_pose(self):
+    def get_robot_pose(self, origin_frame='map', robot_frame='base_link'):
         position, quaternion = None, None
-        if self.tl.frameExists("base_link") and self.tl.frameExists("map"):
-            t = self.tl.getLatestCommonTime("base_link", "map")
-            position, quaternion = self.tl.lookupTransform("base_link", "map", t)
+        if self.tl.frameExists(origin_frame) and self.tl.frameExists(robot_frame):
+            t = self.tl.getLatestCommonTime(origin_frame, robot_frame)
+            position, quaternion = self.tl.lookupTransform(origin_frame, robot_frame, t)
         return position, quaternion
 
     @property
@@ -38,9 +42,9 @@ class Planner:
         return self.get_robot_pose()[1]
     
 
-    def pc_callback(self, elev_map_pc_msg):
-        pc_numpy = pointcloud2_to_xyzrgb_array(elev_map_pc_msg)
-        self.local_map = pc_numpy
+    def local_map_callback(self, elev_map_pc_msg):
+        elev_map = pointcloud2_to_xyzrgb_array(elev_map_pc_msg)
+        self.local_map = elev_map
         # print('X', np.min(pc_numpy[:,0]), np.max(pc_numpy[:,0]))
         # print('Y', np.min(pc_numpy[:,1]), np.max(pc_numpy[:,1]))
         # print('Z', np.min(pc_numpy[:,2]), np.max(pc_numpy[:,2]))
@@ -50,13 +54,22 @@ class Planner:
         # print(voxel.shape)
         # voxel_msg = array_to_pointcloud2(voxel, stamp=pc_msg.header.stamp, frame_id=pc_msg.header.frame_id)
 
+    def pc_callback(self, pc_msg):
+        self.dynamic_pc = pointcloud2_to_xyzrgb_array(pc_msg)
+
 
 if __name__ == '__main__':
     rospy.init_node('elev_map_subscriber')
     planner = Planner()
     
     while not rospy.is_shutdown():
-        if planner.local_map is not None:
-            print(np.mean(planner.local_map))
-        time.sleep(0.1)
+        # if planner.robot_pose is not None:
+        #     print(planner.robot_pose[:2])
+        if planner.local_map is not None and planner.dynamic_pc is not None:
+            path = '/home/ruslan/Desktop/CTU/data/'
+            np.save(path+'elev_map{}.npy'.format(time.time()), planner.local_map)
+            np.save(path+'dynamic_pc{}.npy'.format(time.time()), planner.dynamic_pc)
+            np.save(path+'robot_pose{}.npy'.format(time.time()), planner.robot_pose)
+            print("saved data")
+        time.sleep(3)
     
