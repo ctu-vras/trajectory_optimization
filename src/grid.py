@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def create_grid(elev_map, map_res=0.15, safety_distance=0., margin=0.3):
+def create_grid(elev_map, map_res=0.15, safety_distance=0., margin=0.3, unexplored_value=0.5):
     # minimum and maximum north coordinates
     y_min = np.min(elev_map[:, 1])
     y_max = np.max(elev_map[:, 1])
@@ -19,8 +19,8 @@ def create_grid(elev_map, map_res=0.15, safety_distance=0., margin=0.3):
     # unexplored: -1
     # free:        0
     # occupied:    1
-    grid = np.zeros((x_size, y_size)) - 1
-    elev_grid  = np.zeros((x_size, y_size)) - 1
+    grid = np.zeros((x_size, y_size)) + unexplored_value
+    elev_grid  = np.full((x_size, y_size), np.nan)
 
     # Populate the grid with obstacles
     for i in range(elev_map.shape[0]):
