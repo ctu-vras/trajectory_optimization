@@ -9,8 +9,8 @@ from utils import publish_path
 import numpy as np
 from pointcloud_utils import pointcloud2_to_xyzrgb_array
 from planning import breadth_first_search
-from planning import prune_path
-from planning import smooth_path
+from planning import prune_path, smooth_path
+from planning import apf_planner, apf_path_to_map
 from grid import create_grid
 
 
@@ -43,7 +43,6 @@ class Planner:
     def robot_orient(self):
         return self.get_robot_pose()[1]
     
-
     def local_map_callback(self, elev_map_pc_msg):
         elev_map = pointcloud2_to_xyzrgb_array(elev_map_pc_msg)
         self.local_map = elev_map
@@ -54,7 +53,7 @@ class Planner:
 
 # main parameters
 map_res = 0.15
-margin = 0.2
+height_margin = 0.3
 
 if __name__ == '__main__':
     rospy.init_node('path_planner')
@@ -64,7 +63,7 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         if planner.local_map is not None and planner.robot_pose is not None:
             elev_map = planner.local_map; robot_pose = np.array(planner.robot_pose)
-            grid, elev_grid = create_grid(elev_map, map_res=0.15, safety_distance=0.2, margin=margin)
+            grid, elev_grid = create_grid(elev_map, map_res=0.15, safety_distance=0., margin=height_margin)
             x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
 
             # define start on a grid
@@ -73,13 +72,17 @@ if __name__ == '__main__':
 
             path_grid, goal_grid = breadth_first_search(grid, start_grid)
             # transform path to map coordintes (m)
-            path = [(np.array(point)*0.15+[x_min, y_min]).tolist()+[elev_grid[point]] for point in path_grid]
-            if len(path)>0:
-                path = prune_path(path, 1e-3)
-                # path = smooth_path(np.array(path), vis=1)
-            path = np.array(path) - path[0,:] + robot_pose # start path exactly from robot location
-
+            bfs_path = [(np.array(point)*0.15+[x_min, y_min]).tolist()+[elev_grid[point]] for point in path_grid]
+            if len(bfs_path)>0:
+                bfs_path = prune_path(bfs_path, 1e-3)
+                # bfs_path = smooth_path(np.array(bfs_path), vis=1)
+            bfs_path = np.array(bfs_path)
+            apf_path_grid = apf_planner(grid, [start_grid[1], start_grid[0]], [goal_grid[1], goal_grid[0]], num_iters=100)
+            # transform path to map coordintes (m)
+            apf_path = apf_path_to_map(apf_path_grid, elev_map, elev_grid)
+            path = apf_path
+            # path = bfs_path - bfs_path[0,:] + robot_pose # start path exactly from robot location
             # publish path here
-            publish_path(path, orient=[0,0,0,1], topic_name='resultant_path')
+            publish_path(np.array(path), orient=[0,0,0,1], topic_name='resultant_path')
         rate.sleep()
     

@@ -124,19 +124,20 @@ def a_star(grid, h, start, goal):
 
 
 
-def breadth_first_search(grid, start):
+def breadth_first_search(grid, start, unexplored_value=0.5):
     q = Queue(); q.put(start)
     visited = set(); visited.add(start)
     branch = {}
     found = False
+    goal = None
     
     # Run loop while queue is not empty
     while not q.empty():
         # get element from the queue
         current_node = q.get()
         # if exploration is reached a frontier
-        if grid[current_node[0], current_node[1]] == -1:
-            print('Found a frontier.')
+        if grid[current_node[0], current_node[1]] == unexplored_value:
+            print('BFS: found a frontier.')
             goal = current_node
             found = True
             break
