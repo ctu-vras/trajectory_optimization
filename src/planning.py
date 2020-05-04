@@ -215,3 +215,68 @@ def smooth_path(path, vis=False):
         plt.scatter(x, y)
         plt.plot(xint, yint)
     return np.vstack([xint, yint]).T
+
+# APF
+from scipy.ndimage.morphology import distance_transform_edt as bwdist
+
+def construct_path(total_potential, start_coords, end_coords, max_its):
+    # construct_path: This function plans a path through a 2D
+    # environment from a start to a destination based on the gradient of the
+    # function f which is passed in as a 2D array. The two arguments
+    # start_coords and end_coords denote the coordinates of the start and end
+    # positions respectively in the array while max_its indicates an upper
+    # bound on the number of iterations that the system can use before giving
+    # up.
+    # The output, route, is an array with 2 columns and n rows where the rows
+    # correspond to the coordinates of the robot as it moves along the route.
+    # The first column corresponds to the x coordinate and the second to the y coordinate
+    gy, gx = np.gradient(-total_potential)
+    route = [np.array(start_coords)]
+    for i in range(max_its):
+        current_point = np.array(route[-1])
+        #print(sum( abs(current_point-end_coords) ))
+        if sum( abs(current_point-end_coords) ) < 2.0:
+            print('Reached the goal !')
+            break
+        ix = np.clip(int(current_point[1]), 0, gx.shape[0]-1)
+        iy = np.clip(int(current_point[0]), 0, gx.shape[1]-1)
+        vx = gx[ix, iy]; vy = gy[ix, iy]
+        dt = 0.5/(1e-8+np.linalg.norm([vx, vy]))
+        next_point = current_point + dt*np.array( [vx, vy] )
+        route.append(next_point)
+    return route
+
+def apf_planner(grid, start, goal, num_iters=100, influence_r=0.2, repulsive_coef=200, attractive_coef=0.01):
+    nrows, ncols = grid.shape
+    x, y = np.meshgrid(np.arange(ncols), np.arange(nrows))
+    # Compute repulsive force
+    d = bwdist(grid==0)
+    # Rescale and transform distances
+    d2 = d/100. + 1
+    d0 = 1 + influence_r
+    nu = repulsive_coef
+    repulsive = nu*((1./d2 - 1./d0)**2)
+    repulsive[d2 > d0] = 0
+
+    # Compute attractive force
+    xi = attractive_coef
+    attractive = xi * ( (x - goal[0])**2 + (y - goal[1])**2 )
+    # Combine terms
+    total = attractive + repulsive
+    # plan a path
+    path = construct_path(total, start, goal, num_iters)
+    return path
+
+def apf_path_to_map(apf_path, elev_map, elev_grid, map_res=0.15):
+    path_map = []
+    x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
+    for point in apf_path:
+        z = elev_grid[int(point[1]), int(point[0])]
+        p = (np.array(point)*map_res+[y_min, x_min]).tolist() + [z]
+        path_map.append([p[1], p[0], p[2]])
+    return path_map
+
+# def apf_planner(grid, start, goal, elev_map, elev_grid):
+#     path_grid = apf_grid_planner(grid, start, goal)
+#     path_map = apf_path_to_map(apf_path, elev_map, elev_grid)
+#     return path_map
