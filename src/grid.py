@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def create_grid(elev_map, map_res=0.15, safety_distance=0.15, margin=0.3, unexplored_value=0.5):
+def create_grid(elev_map, robot_z, map_res=0.15, safety_distance=0.15, margin=0.3, unexplored_value=0.5):
     # minimum and maximum east coordinates
     x_min = np.min(elev_map[:, 0])
     x_max = np.max(elev_map[:, 0])
@@ -25,7 +25,7 @@ def create_grid(elev_map, map_res=0.15, safety_distance=0.15, margin=0.3, unexpl
     # Populate the grid with obstacles
     for i in range(elev_map.shape[0]):
         x, y, z, _ = elev_map[i, :]
-        dx, dy, dz = map_res, map_res, map_res
+        dx, dy, dz = map_res, map_res, z-robot_z
         sd = safety_distance * (z > margin) # safety distance is added to points treated as obstacles
         obstacle = [
             int(np.clip((x - dx - sd - x_min)//dx, 0, x_size-1)),
@@ -33,6 +33,9 @@ def create_grid(elev_map, map_res=0.15, safety_distance=0.15, margin=0.3, unexpl
             int(np.clip((y - dy - sd - y_min)//dy, 0, y_size-1)),
             int(np.clip((y + dy + sd - y_min)//dy, 0, y_size-1)),
         ]
-        grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = z > margin
+        # If cell height is higher than robot location more than heght margin
+        # than it is not traversable, i.e. treated as obstacle.
+        # Otherwise the cell is free to go to.
+        grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = dz > margin
         elev_grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = z
     return grid, elev_grid

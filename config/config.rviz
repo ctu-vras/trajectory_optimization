@@ -53,7 +53,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 80
+      Plane Cell Count: 150
       Reference Frame: <Fixed Frame>
       Value: true
     - Alpha: 1
@@ -402,7 +402,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 114; 159; 207
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -420,7 +420,7 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /exploration/bfs_path
       Unreliable: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

@@ -50,6 +50,11 @@ class Planner:
     def pc_callback(self, pc_msg):
         self.dynamic_pc = pointcloud2_to_xyzrgb_array(pc_msg)
 
+def save_data(ind, folder_path='/home/ruslan/Desktop/CTU/catkin_ws/src/frontier_exploration/src/data/'):
+    np.save(folder_path+'elev_map{}.npy'.format(ind), planner.local_map)
+    np.save(folder_path+'dynamic_pc{}.npy'.format(ind), planner.dynamic_pc)
+    np.save(folder_path+'robot_pose{}.npy'.format(ind), planner.robot_pose)
+    print("saved data")
 
 # define main parameters here
 height_margin = 0.1 # traversable height margin: elevation map cells, higher than this value, are considered as untraversable
@@ -63,12 +68,15 @@ if __name__ == '__main__':
     rospy.init_node('path_planner')
     planner = Planner()
     
+    ind = 0
     rate = rospy.Rate(0.33)
     while not rospy.is_shutdown():
 
         if planner.local_map is not None and planner.robot_pose is not None:
+            # save_data(ind)
+
             elev_map = planner.local_map; robot_pose = np.array(planner.robot_pose)
-            grid, elev_grid = create_grid(elev_map, map_res, safety_distance, height_margin, unexplored_value)
+            grid, elev_grid = create_grid(elev_map, robot_pose[2], map_res, safety_distance, height_margin, unexplored_value)
             x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
 
             # define start on a grid
@@ -99,6 +107,7 @@ if __name__ == '__main__':
                 publish_path(apf_path, orient=[0,0,0,1], topic_name='/exploration/apf_path')
                 bfs_path[:,2] += map_res # for better path visuaization with elevation map
                 publish_path(bfs_path, orient=[0,0,0,1], topic_name='/exploration/bfs_path')
-            
+
+        ind += 1        
         rate.sleep()
     
