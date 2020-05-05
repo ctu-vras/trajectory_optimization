@@ -1,14 +1,14 @@
 import numpy as np
 
 
-def create_grid(elev_map, map_res=0.15, safety_distance=0., margin=0.3, unexplored_value=0.5):
-    # minimum and maximum north coordinates
-    y_min = np.min(elev_map[:, 1])
-    y_max = np.max(elev_map[:, 1])
-
+def create_grid(elev_map, map_res=0.15, safety_distance=0.15, margin=0.3, unexplored_value=0.5):
     # minimum and maximum east coordinates
     x_min = np.min(elev_map[:, 0])
     x_max = np.max(elev_map[:, 0])
+    
+    # minimum and maximum north coordinates
+    y_min = np.min(elev_map[:, 1])
+    y_max = np.max(elev_map[:, 1])
 
     # given the minimum and maximum coordinates we can
     # calculate the size of the grid.
@@ -16,7 +16,7 @@ def create_grid(elev_map, map_res=0.15, safety_distance=0., margin=0.3, unexplor
     x_size = int((x_max - x_min)//map_res)
 
     # Initialize an unexplored grid
-    # unexplored: -1
+    # unexplored: 0.5
     # free:        0
     # occupied:    1
     grid = np.zeros((x_size, y_size)) + unexplored_value

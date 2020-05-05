@@ -2,7 +2,7 @@ from queue import PriorityQueue
 from enum import Enum
 from queue import Queue
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class Action(Enum):
     """
@@ -16,10 +16,10 @@ class Action(Enum):
     RIGHT = (0, 1, 1)
     UP = (-1, 0, 1)
     DOWN = (1, 0, 1)
-    LEFT_UP = (-1, -1, 1)
-    LEFT_DOWN = (1, -1, 1)
-    RIGHT_UP = (-1, 1, 1)
-    RIGHT_DOWN = (1, 1, 1)
+    LEFT_UP = (-1, -1, np.sqrt(2))
+    LEFT_DOWN = (1, -1, np.sqrt(2))
+    RIGHT_UP = (-1, 1, np.sqrt(2))
+    RIGHT_DOWN = (1, 1, np.sqrt(2))
     
     @property
     def cost(self):
@@ -61,6 +61,7 @@ def valid_actions(grid, current_node):
         
     return valid
 
+# A* planner
 def heuristic(p, goal, mode='euclid'):
     p = np.array(p); goal = np.array(goal)
     if mode=='euclid':
@@ -91,7 +92,7 @@ def a_star(grid, h, start, goal):
             current_cost = branch[current_node][0]
             
         if current_node == goal:        
-            print('Found a path.')
+            print('APF: found a path.')
             found = True
             break
         else:
@@ -122,11 +123,10 @@ def a_star(grid, h, start, goal):
         print('**********************') 
     return path[::-1], path_cost
 
-
-
+# BFS
 def breadth_first_search(grid, start, unexplored_value=0.5):
     q = Queue(); q.put(start)
-    visited = set(); visited.add(start)
+    visited = set(start)
     branch = {}
     found = False
     goal = None
@@ -137,7 +137,7 @@ def breadth_first_search(grid, start, unexplored_value=0.5):
         current_node = q.get()
         # if exploration is reached a frontier
         if grid[current_node[0], current_node[1]] == unexplored_value:
-            print('BFS: found a frontier.')
+            print('BFS: found a frontier')
             goal = current_node
             found = True
             break
@@ -164,7 +164,7 @@ def breadth_first_search(grid, start, unexplored_value=0.5):
     # Now, if you found a path, retrace your steps through 
     # the branch dictionary to find out how you got there!
     path = []
-    if found:
+    if found and len(branch)>0:
         # retrace steps
         path = []
         n = goal
@@ -175,7 +175,7 @@ def breadth_first_search(grid, start, unexplored_value=0.5):
             
     return path[::-1], goal
 
-
+# Path prunning and smoothing
 def point(p):
     return np.array([p[0], p[1], 1.]).reshape(1, -1)
 
@@ -237,7 +237,7 @@ def construct_path(total_potential, start_coords, end_coords, max_its):
         current_point = np.array(route[-1])
         #print(sum( abs(current_point-end_coords) ))
         if sum( abs(current_point-end_coords) ) < 2.0:
-            print('Reached the goal !')
+            # print('APF: reached the goal!')
             break
         ix = np.clip(int(current_point[1]), 0, gx.shape[0]-1)
         iy = np.clip(int(current_point[0]), 0, gx.shape[1]-1)
@@ -247,7 +247,7 @@ def construct_path(total_potential, start_coords, end_coords, max_its):
         route.append(next_point)
     return route
 
-def apf_planner(grid, start, goal, num_iters=100, influence_r=0.2, repulsive_coef=200, attractive_coef=0.01):
+def apf_planner(grid, start, goal, num_iters=100, influence_r=0.2, repulsive_coef=100, attractive_coef=0.01):
     nrows, ncols = grid.shape
     x, y = np.meshgrid(np.arange(ncols), np.arange(nrows))
     # Compute repulsive force
@@ -272,7 +272,9 @@ def apf_path_to_map(apf_path, elev_map, elev_grid, map_res=0.15):
     path_map = []
     x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
     for point in apf_path:
-        z = elev_grid[int(point[1]), int(point[0])]
+        i = int(np.clip(point[1], 0, elev_grid.shape[0]-1))
+        j = int(np.clip(point[0], 0, elev_grid.shape[1]-1))
+        z = elev_grid[i, j]
         p = (np.array(point)*map_res+[y_min, x_min]).tolist() + [z]
         path_map.append([p[1], p[0], p[2]])
     return path_map
