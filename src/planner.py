@@ -7,16 +7,17 @@ from nav_msgs.msg import Path
 from utils import publish_path
 
 import numpy as np
+import matplotlib.pyplot as plt
 from pointcloud_utils import pointcloud2_to_xyzrgb_array
 from planning import breadth_first_search
 from planning import prune_path, smooth_path
-from planning import apf_planner, apf_path_to_map
+from planning import apf_planner, apf_path_to_map, draw_gradient
 from grid import create_grid
 
 
 class Planner:
     def __init__(self, elev_map_topic='/exploration/local_elev', pc_topic='/dynamic_point_cloud'):
-        self.elev_map_topic = rospy.get_param('~pointcloud_topic', elev_map_topic)
+        self.elev_map_topic = rospy.get_param('~elevation_map_topic', elev_map_topic)
         print("Subscribed to " + self.elev_map_topic)
         local_map_sub = rospy.Subscriber(elev_map_topic, PointCloud2, self.local_map_callback)
 
@@ -56,12 +57,18 @@ def save_data(ind, folder_path='/home/ruslan/Desktop/CTU/catkin_ws/src/frontier_
     np.save(folder_path+'robot_pose{}.npy'.format(ind), planner.robot_pose)
     print("saved data")
 
+
 # define main parameters here
 height_margin = 0.1 # traversable height margin: elevation map cells, higher than this value, are considered as untraversable
 safety_distance = 0.3 # to keep away from obstacles (for grid creation)
 map_res = 0.15 # map resolution
-unexplored_value = 0.25 # value of unknown cells in a constructed grid
-num_apf_iters = 50 # max num of iterations to plan an APF trajectory
+unexplored_value = 0.05 # value of unknown cells in a constructed grid
+
+# APF params
+max_apf_iters = 100 # max num of iterations to plan an APF trajectory
+influence_r = 0.2
+repulsive_coef = 200
+attractive_coef = 1./60
 
 
 if __name__ == '__main__':
@@ -70,6 +77,7 @@ if __name__ == '__main__':
     
     ind = 0
     rate = rospy.Rate(0.33)
+    plt.figure(figsize=(10,10))
     while not rospy.is_shutdown():
 
         if planner.local_map is not None and planner.robot_pose is not None:
@@ -84,9 +92,9 @@ if __name__ == '__main__':
             start_grid = (int(robot_grid_pose[0]), int(robot_grid_pose[1]))
 
             # BFS
-            path_grid, goal_grid = breadth_first_search(grid, start_grid, unexplored_value)
+            bfs_path_grid, goal_grid = breadth_first_search(grid, start_grid, unexplored_value)
             # transform path to map coordintes (m)
-            bfs_path = [(np.array(point)*map_res+[x_min, y_min]).tolist()+[elev_grid[point]] for point in path_grid]
+            bfs_path = [(np.array(point)*map_res+[x_min, y_min]).tolist()+[elev_grid[point]] for point in bfs_path_grid]
 
             if len(bfs_path)>0:
                 bfs_path = prune_path(bfs_path, 1e-3)
@@ -96,7 +104,8 @@ if __name__ == '__main__':
             # APF
             # if BFS found a frontier then do APF trajectory planning
             if goal_grid is not None:
-                apf_path_grid = apf_planner(grid, [start_grid[1], start_grid[0]], [goal_grid[1], goal_grid[0]], num_iters=num_apf_iters)
+                apf_path_grid, total_potential = apf_planner(grid, [start_grid[1], start_grid[0]], [goal_grid[1], goal_grid[0]],
+                                                             max_apf_iters, influence_r, repulsive_coef, attractive_coef)
                 # transform path to map coordintes (m)
                 apf_path = apf_path_to_map(apf_path_grid, elev_map, elev_grid, map_res)
                 apf_path = np.array(apf_path)
@@ -108,6 +117,19 @@ if __name__ == '__main__':
                 bfs_path[:,2] += map_res # for better path visuaization with elevation map
                 publish_path(bfs_path, orient=[0,0,0,1], topic_name='/exploration/bfs_path')
 
+                # visualize APF trajectory
+                plt.cla()
+                plt.imshow(1-grid, cmap='gray')
+                plt.plot(goal_grid[1], goal_grid[0], 'ro', label='frontier goal')
+                plt.plot(start_grid[1], start_grid[0], 'ro', color='g', label='current position')
+                apf_path_grid = np.array(apf_path_grid); bfs_path_grid = np.array(bfs_path_grid)
+                plt.plot(apf_path_grid[:,0], apf_path_grid[:,1], label='APF path')
+                # plt.plot(bfs_path_grid[:,1], bfs_path_grid[:,0], '--', label='BFS path')
+                draw_gradient(total_potential)
+                plt.legend()
+                plt.draw()
+                plt.pause(0.01)
+
         ind += 1        
         rate.sleep()
-    
+    plt.show()

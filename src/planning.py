@@ -237,13 +237,14 @@ def construct_path(total_potential, start_coords, end_coords, max_its):
         current_point = np.array(route[-1])
         #print(sum( abs(current_point-end_coords) ))
         if sum( abs(current_point-end_coords) ) < 2.0:
-            # print('APF: reached the goal!')
+            print('APF: reached the goal !')
             break
         ix = np.clip(int(current_point[1]), 0, gx.shape[0]-1)
         iy = np.clip(int(current_point[0]), 0, gx.shape[1]-1)
         vx = gx[ix, iy]; vy = gy[ix, iy]
-        dt = 0.5/(1e-8+np.linalg.norm([vx, vy]))
-        next_point = current_point + dt*np.array( [vx, vy] )
+        dt = 1/(1e-8+np.linalg.norm([vx, vy]))
+        next_point = current_point + dt/2.*np.array([np.sign(vx)*vx**2, np.sign(vy)*vy**2])
+        #next_point = current_point + dt*np.array( [vx, vy] ) + dt/2.*np.array([np.sign(vx)*vx**2, np.sign(vy)*vy**2])
         route.append(next_point)
     return route
 
@@ -266,7 +267,7 @@ def apf_planner(grid, start, goal, num_iters=100, influence_r=0.2, repulsive_coe
     total = attractive + repulsive
     # plan a path
     path = construct_path(total, start, goal, num_iters)
-    return path
+    return path, total
 
 def apf_path_to_map(apf_path, elev_map, elev_grid, map_res=0.15):
     path_map = []
@@ -283,3 +284,9 @@ def apf_path_to_map(apf_path, elev_map, elev_grid, map_res=0.15):
 #     path_grid = apf_grid_planner(grid, start, goal)
 #     path_map = apf_path_to_map(apf_path, elev_map, elev_grid)
 #     return path_map
+
+def draw_gradient(f, skip=1):
+    nrows, ncols = f.shape
+    x_m, y_m = np.meshgrid(np.arange(ncols), np.arange(nrows))
+    gy, gx = np.gradient(-f)
+    Q = plt.quiver(x_m[::skip, ::skip], y_m[::skip, ::skip], gx[::skip, ::skip], -gy[::skip, ::skip])
