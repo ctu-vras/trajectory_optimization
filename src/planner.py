@@ -60,15 +60,15 @@ def save_data(ind, folder_path='/home/ruslan/Desktop/CTU/catkin_ws/src/frontier_
 
 # define main parameters here
 height_margin = 0.1 # traversable height margin: elevation map cells, higher than this value, are considered as untraversable
-safety_distance = 0.3 # to keep away from obstacles (for grid creation)
 map_res = 0.15 # map resolution
-unexplored_value = 0.05 # value of unknown cells in a constructed grid
+safety_distance = 2*map_res # to keep away from obstacles (for grid creation)
+unexplored_value = 0.25 # value of unknown cells in a constructed grid
 
 # APF params
 max_apf_iters = 100 # max num of iterations to plan an APF trajectory
 influence_r = 0.2
-repulsive_coef = 200
-attractive_coef = 1./60
+repulsive_coef = 100
+attractive_coef = 1./100
 
 
 if __name__ == '__main__':
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     planner = Planner()
     
     ind = 0
-    rate = rospy.Rate(0.33)
+    rate = rospy.Rate(1)
     plt.figure(figsize=(10,10))
     while not rospy.is_shutdown():
 
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
             if len(bfs_path)>0:
                 bfs_path = prune_path(bfs_path, 1e-3)
-                # bfs_path = smooth_path(np.array(bfs_path), vis=1)
+                # bfs_path = smooth_path(np.array(bfs_path), vis=False)
             bfs_path = np.array(bfs_path)
 
             # APF
@@ -113,11 +113,11 @@ if __name__ == '__main__':
                 apf_path = apf_path - apf_path[0,:] + robot_pose # start path exactly from robot location
                 # publish paths here
                 apf_path[:,2] += map_res # for better path visuaization with elevation map
-                publish_path(apf_path, orient=[0,0,0,1], topic_name='/exploration/apf_path')
+                publish_path(apf_path, topic_name='/exploration/apf_path')
                 bfs_path[:,2] += map_res # for better path visuaization with elevation map
-                publish_path(bfs_path, orient=[0,0,0,1], topic_name='/exploration/bfs_path')
+                publish_path(bfs_path, topic_name='/exploration/bfs_path')
 
-                # visualize APF trajectory
+                # visualize APF and trajectories
                 plt.cla()
                 plt.imshow(1-grid, cmap='gray')
                 plt.plot(goal_grid[1], goal_grid[0], 'ro', label='frontier goal')
@@ -129,7 +129,6 @@ if __name__ == '__main__':
                 plt.legend()
                 plt.draw()
                 plt.pause(0.01)
-
         ind += 1        
         rate.sleep()
     plt.show()

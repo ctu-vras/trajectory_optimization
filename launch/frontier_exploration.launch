@@ -5,14 +5,9 @@
 	<param name="/use_sim_time" value="true" />
 
 	<!-- play bag file -->
-	<node name="playbag" pkg="rosbag" type="play" args="--clock -r 9.99 $(arg bag_filename)" />
-
+	<node name="playbag" pkg="rosbag" type="play" args="--clock -r 1 $(arg bag_filename)" />
 	<!-- planner -->
 	<node pkg="frontier_exploration" type="planner.py" name="planner" output="screen"/>
-
-	<!-- launch file include example -->
-	<!-- <include file="$(find frontier_exploration)/launch/frontier_exploration.launch"/> -->
-
+	<!-- rviz -->
 	<node name="rviz" pkg="rviz" type="rviz" required="true" args="-d $(find frontier_exploration)/config/config.rviz" />
-
 </launch>
