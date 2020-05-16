@@ -5,7 +5,7 @@
 	<param name="/use_sim_time" value="true" />
 
 	<!-- play bag file -->
-	<node name="playbag" pkg="rosbag" type="play" args="--clock -r 9 $(arg bag_filename)" />
+	<node name="playbag" pkg="rosbag" type="play" args="--clock -r 3.33 $(arg bag_filename)" />
 	<!-- planner -->
 	<node pkg="frontier_exploration" type="planner.py" name="planner" output="screen"/>
 	<!-- rviz -->
