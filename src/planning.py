@@ -242,7 +242,7 @@ def construct_path(total_potential, start_coords, end_coords, max_its):
         ix = np.clip(int(current_point[1]), 0, gx.shape[0]-1)
         iy = np.clip(int(current_point[0]), 0, gx.shape[1]-1)
         vx = gx[ix, iy]; vy = gy[ix, iy]
-        dt = 1/(1e-8+np.linalg.norm([vx, vy]))
+        dt = 1./(1e-8+np.linalg.norm([vx, vy]))
         next_point = current_point + dt/2.*np.array([np.sign(vx)*vx**2, np.sign(vy)*vy**2])
         #next_point = current_point + dt*np.array( [vx, vy] ) + dt/2.*np.array([np.sign(vx)*vx**2, np.sign(vy)*vy**2])
         route.append(next_point)

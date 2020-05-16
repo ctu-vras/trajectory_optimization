@@ -61,13 +61,13 @@ def save_data(ind, folder_path='/home/ruslan/Desktop/CTU/catkin_ws/src/frontier_
 # define main parameters here
 height_margin = 0.1 # traversable height margin: elevation map cells, higher than this value, are considered as untraversable
 map_res = 0.15 # map resolution
-safety_distance = 2*map_res # to keep away from obstacles (for grid creation)
-unexplored_value = 0.25 # value of unknown cells in a constructed grid
+safety_distance = 1*map_res # to keep away from obstacles (for grid creation)
+unexplored_value = 0.5 # value of unknown cells in a constructed grid
 
 # APF params
-max_apf_iters = 100 # max num of iterations to plan an APF trajectory
-influence_r = 0.2
-repulsive_coef = 100
+max_apf_iters = 200 # max num of iterations to plan an APF trajectory
+influence_r = 0.15
+repulsive_coef = 200
 attractive_coef = 1./100
 
 
@@ -84,7 +84,7 @@ if __name__ == '__main__':
             # save_data(ind)
 
             elev_map = planner.local_map; robot_pose = np.array(planner.robot_pose)
-            grid, elev_grid = create_grid(elev_map, robot_pose[2], map_res, safety_distance, height_margin, unexplored_value)
+            grid, elev_grid = create_grid(elev_map, robot_pose[2], map_res, height_margin, safety_distance, unexplored_value)
             x_min, y_min = np.min(elev_map[:, 0]), np.min(elev_map[:, 1])
 
             # define start on a grid
@@ -124,7 +124,7 @@ if __name__ == '__main__':
                 plt.plot(start_grid[1], start_grid[0], 'ro', color='g', label='current position')
                 apf_path_grid = np.array(apf_path_grid); bfs_path_grid = np.array(bfs_path_grid)
                 plt.plot(apf_path_grid[:,0], apf_path_grid[:,1], label='APF path')
-                # plt.plot(bfs_path_grid[:,1], bfs_path_grid[:,0], '--', label='BFS path')
+                plt.plot(bfs_path_grid[:,1], bfs_path_grid[:,0], '--', label='BFS path')
                 draw_gradient(total_potential)
                 plt.legend()
                 plt.draw()
