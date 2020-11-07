@@ -1,0 +1,11 @@
+<launch>
+    <arg name="bag" default="$(find frontier_exploration)/data/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
+
+    <param name="use_sim_time" value="true"/>
+
+    <node name="play" pkg="rosbag" type="play" output="screen"
+          args="--clock -r 10.0 -k $(arg bag)"/>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find frontier_exploration)/config/josef.rviz"/>
+    <node if="0" name="rqt_tf_tree" pkg="rqt_tf_tree" type="rqt_tf_tree"/>
+</launch>

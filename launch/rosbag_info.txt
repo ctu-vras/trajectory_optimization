@@ -1,0 +1,36 @@
+Catkin workspace: /home/petrito1/workspace/naex_catkin/devel
+path:         src/naex/launch/ruslan/josef_2019-06-06-13-58-12_proc_0.1m.bag
+version:      2.0
+duration:     20:25s (1225s)
+start:        Jun 06 2019 13:59:02.48 (1559822342.48)
+end:          Jun 06 2019 14:19:27.62 (1559823567.62)
+size:         15.1 GB
+messages:     354807
+compression:  lz4 [2691/2691 chunks; 79.52%]
+uncompressed: 19.0 GB @ 15.9 MB/s
+compressed:   15.1 GB @ 12.6 MB/s (79.52%)
+types:        nav_msgs/Path               [6227e2b7e9cce15051f669a5e197bbf7]
+              sensor_msgs/CameraInfo      [c9a58c1b0b154e0e6da7578cb991d214]
+              sensor_msgs/CompressedImage [8f7a12909da2c9d3332d540a0977563f]
+              sensor_msgs/PointCloud2     [1158d486dd51d683ce2f1be655c3c181]
+              tf2_msgs/TFMessage          [94810edda583a504dfda3829e70d7eec]
+topics:       /dynamic_point_cloud                395 msgs @   0.3 Hz : sensor_msgs/PointCloud2    
+              /final_cost_cloud                    99 msgs @   0.1 Hz : sensor_msgs/PointCloud2    
+              /output_3d_pc                       279 msgs @   0.2 Hz : sensor_msgs/PointCloud2    
+              /output_3d_pc_dem                   279 msgs @   0.2 Hz : sensor_msgs/PointCloud2    
+              /path                                99 msgs @   0.1 Hz : nav_msgs/Path              
+              /point_map                          353 msgs @   0.3 Hz : sensor_msgs/PointCloud2    
+              /tf                              340818 msgs            : tf2_msgs/TFMessage         
+              /tf_static                            5 msgs @ 198.9 Hz : tf2_msgs/TFMessage         
+              /viz/camera_0/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_0/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
+              /viz/camera_1/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_1/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
+              /viz/camera_2/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_2/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
+              /viz/camera_3/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_3/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
+              /viz/camera_4/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_4/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
+              /viz/camera_5/camera_info          1040 msgs @   0.9 Hz : sensor_msgs/CameraInfo     
+              /viz/camera_5/image/compressed     1040 msgs @   0.9 Hz : sensor_msgs/CompressedImage
