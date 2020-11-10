@@ -29,17 +29,24 @@ class Test:
 
         self.tl = tf.TransformListener()
 
-    def ego_to_cam(self, points, trans, pyquat, intrins=None):
+    @staticmethod
+    def ego_to_cam(points, trans, pyquat):
         """Transform points (3 x N) from ego frame into a pinhole camera
         """
         points = points - np.expand_dims(trans, 1)
         rot = pyquat.rotation_matrix
         points = rot.T @ points
-        self.publish_pointcloud(points.T, '/tmp_pointcloud', rospy.Time.now(), self.cam_frame)
-
-        # points = intrins.dot(points)
-        # points[:2] /= points[2:3]
         return points
+
+    @staticmethod
+    def get_only_in_img_mask(pts, H, W, intrins):
+        """pts should be 3 x N
+        """
+        pts = intrins @ pts
+        pts[:2] /= pts[2:3]
+        return (pts[2] > 0) & \
+               (pts[0] > 1) & (pts[0] < W - 1) & \
+               (pts[1] > 1) & (pts[1] < H - 1)
 
     @staticmethod
     def publish_pointcloud(points, topic_name, stamp, frame_id):
@@ -54,8 +61,8 @@ class Test:
         self.points = dynamic_pc.T
 
     def cam_info_callback(self, cam_info_msg):
-        w = cam_info_msg.width
-        h = cam_info_msg.height
+        W = cam_info_msg.width
+        H = cam_info_msg.height
         self.cam_frame = cam_info_msg.header.frame_id
         self.K[0][0] = cam_info_msg.K[0]
         self.K[0][2] = cam_info_msg.K[2]
@@ -64,14 +71,23 @@ class Test:
         self.K[2][2] = 1
 
         if self.pc_frame is not None:  # and self.tl.frameExists("map"):
+            # find transformation between lidar and camera
             t = self.tl.getLatestCommonTime(self.pc_frame, self.cam_frame)
             trans, quat = self.tl.lookupTransform(self.pc_frame, self.cam_frame, t)
             pyquat = Quaternion(w=quat[3], x=quat[0], y=quat[1], z=quat[2]).normalised
             trans = np.array(trans)
 
-            cam_pts = self.ego_to_cam(copy.deepcopy(self.points), trans, pyquat)
+            # project points to camera coordinate frame
+            ego_pts = self.ego_to_cam(copy.deepcopy(self.points), trans, pyquat)
+            # find points that are observed by the camera (in its FOV)
+            frame_mask = self.get_only_in_img_mask(ego_pts, H, W, self.K)
+            cam_pts = ego_pts[:, frame_mask]
 
+            # clip points between 1.0 and 5.0 meters distance from the camera
+            dist_mask = (cam_pts[2] > 1.0) & (cam_pts[2] < 5.0)
+            cam_pts = cam_pts[:, dist_mask]
 
+            self.publish_pointcloud(cam_pts.T, '/tmp_pointcloud', rospy.Time.now(), self.cam_frame)
 
 
 if __name__ == '__main__':
