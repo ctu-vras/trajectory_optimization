@@ -3,21 +3,27 @@
 import rospy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import CameraInfo
+from nav_msgs.msg import Path
 import tf, tf2_ros
 
-import numpy as np
 import torch
-import pytorch3d
+from pytorch3d.transforms import quaternion_apply, quaternion_invert
 from pointcloud_utils import pointcloud2_to_xyz_array, xyz_array_to_pointcloud2
 from pyquaternion import Quaternion
 import copy
+import time
 
-class Test:
-    def __init__(self, pc_topic='/dynamic_point_cloud', cam_info_topic='/viz/camera_0/camera_info'):
-        self.K = np.zeros((3, 3))
+
+class PointsProcessor:
+    def __init__(self,
+                 pc_topic='/output_3d_pc',
+                 cam_info_topic='/viz/camera_0/camera_info',
+                 path_topic='/path'):
+        self.K = torch.zeros((3, 3))
         self.pc_frame = None
         self.cam_frame = None
         self.points = None
+        self.pc_clip_limits = [1.0, 5.0]
 
         self.pc_topic = rospy.get_param('~pointcloud_topic', pc_topic)
         print("Subscribed to " + self.pc_topic)
@@ -27,16 +33,20 @@ class Test:
         print("Subscribed to " + self.cam_info_topic)
         cam_info_sub = rospy.Subscriber(cam_info_topic, CameraInfo, self.cam_info_callback)
 
+        # self.path_topic = rospy.get_param('~path_topic', path_topic)
+        # print("Subscribed to " + self.path_topic)
+        # cam_info_sub = rospy.Subscriber(path_topic, Path, self.path_callback)
+
         self.tl = tf.TransformListener()
 
     @staticmethod
-    def ego_to_cam(points, trans, pyquat):
-        """Transform points (3 x N) from ego frame into a pinhole camera
+    def ego_to_cam_torch(points, trans, quat):
+        """Transform points (N x 3) from ego frame into a pinhole camera
         """
-        points = points - np.expand_dims(trans, 1)
-        rot = pyquat.rotation_matrix
-        points = rot.T @ points
-        return points
+        points = points - trans
+        quat_inv = quaternion_invert(quat)
+        points = quaternion_apply(quat_inv, points)
+        return points.T.float()
 
     @staticmethod
     def get_only_in_img_mask(pts, H, W, intrins):
@@ -55,43 +65,56 @@ class Test:
         pub = rospy.Publisher(topic_name, PointCloud2, queue_size=1)
         pub.publish(pc_msg)
 
+    def path_callback(self, path_msg):
+        print(path_msg.poses[-1])
+
     def pc_callback(self, pc_msg):
-        dynamic_pc = pointcloud2_to_xyz_array(pc_msg)
+        points = pointcloud2_to_xyz_array(pc_msg)
         self.pc_frame = pc_msg.header.frame_id
-        self.points = dynamic_pc.T
+        self.points = points.T
 
     def cam_info_callback(self, cam_info_msg):
-        W = cam_info_msg.width
-        H = cam_info_msg.height
+        t0 = time.time()
+        fovH = cam_info_msg.height
+        fovW = cam_info_msg.width
+
         self.cam_frame = cam_info_msg.header.frame_id
         self.K[0][0] = cam_info_msg.K[0]
         self.K[0][2] = cam_info_msg.K[2]
         self.K[1][1] = cam_info_msg.K[4]
         self.K[1][2] = cam_info_msg.K[5]
-        self.K[2][2] = 1
+        self.K[2][2] = 1.
+        self.K = self.K.float()
 
-        if self.pc_frame is not None:  # and self.tl.frameExists("map"):
-            # find transformation between lidar and camera
-            t = self.tl.getLatestCommonTime(self.pc_frame, self.cam_frame)
-            trans, quat = self.tl.lookupTransform(self.pc_frame, self.cam_frame, t)
-            pyquat = Quaternion(w=quat[3], x=quat[0], y=quat[1], z=quat[2]).normalised
-            trans = np.array(trans)
+        if self.pc_frame is not None:  # and self.tl.frameExists(self.pc_frame):
+            self.run(fovH, fovW)
+        # print(f'[INFO]: Callback run time {1000 * (time.time() - t0):.1f} ms')
 
-            # project points to camera coordinate frame
-            ego_pts = self.ego_to_cam(copy.deepcopy(self.points), trans, pyquat)
-            # find points that are observed by the camera (in its FOV)
-            frame_mask = self.get_only_in_img_mask(ego_pts, H, W, self.K)
-            cam_pts = ego_pts[:, frame_mask]
+    def run(self, fovH, fovW):
+        t1 = time.time()
+        # find transformation between lidar and camera
+        t = self.tl.getLatestCommonTime(self.pc_frame, self.cam_frame)
+        trans, quat = self.tl.lookupTransform(self.pc_frame, self.cam_frame, t)
 
-            # clip points between 1.0 and 5.0 meters distance from the camera
-            dist_mask = (cam_pts[2] > 1.0) & (cam_pts[2] < 5.0)
-            cam_pts = cam_pts[:, dist_mask]
+        quat_torch = torch.tensor([quat[3], quat[0], quat[1], quat[2]])
+        points_torch = torch.from_numpy(self.points).T
+        trans_torch = torch.unsqueeze(torch.tensor(trans), 0)
+        ego_pts_torch = self.ego_to_cam_torch(points_torch, trans_torch, quat_torch)
 
-            self.publish_pointcloud(cam_pts.T, '/tmp_pointcloud', rospy.Time.now(), self.cam_frame)
+        # find points that are observed by the camera (in its FOV)
+        frame_mask = self.get_only_in_img_mask(ego_pts_torch, fovH, fovW, self.K)
+        cam_pts = ego_pts_torch[:, frame_mask]
+
+        # clip points between 1.0 and 5.0 meters distance from the camera
+        dist_mask = (cam_pts[2] > self.pc_clip_limits[0]) & (cam_pts[2] < self.pc_clip_limits[1])
+        cam_pts = cam_pts[:, dist_mask]
+        print(f'[INFO]: Number of observed points from {self.cam_frame} is: {cam_pts.shape[1]}')
+
+        self.publish_pointcloud(cam_pts.cpu().numpy().T, '/output/pointcloud', rospy.Time.now(), self.cam_frame)
+        # print(f'[INFO]: Processing took {1000*(time.time()-t1):.1f} ms')
 
 
 if __name__ == '__main__':
-    rospy.init_node('test_node')
-    test = Test()
-    
+    rospy.init_node('pc_processor_node')
+    proc = PointsProcessor()
     rospy.spin()

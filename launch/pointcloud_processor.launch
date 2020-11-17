@@ -1,9 +1,14 @@
 <launch>
     <arg name="bag" default="$(find frontier_exploration)/data/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
     <arg name="bag_rate" default="10.0"/>
-    <arg name="rviz_config" default="josef"/>
+    <arg name="rviz_config" default="devel"/>
 
     <param name="use_sim_time" value="true"/>
+
+    <node name="pc_processor" pkg="frontier_exploration" type="pc_processor.py" output="screen">
+        <param name="pointcloud_topic" value="/output_3d_pc"/>
+        <param name="cam_info_topic" value="/viz/camera_0/camera_info"/>
+    </node>
 
     <node name="play" pkg="rosbag" type="play" output="screen"
           args="--clock -r $(arg bag_rate) -k $(arg bag)"/>
