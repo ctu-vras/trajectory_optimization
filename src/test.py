@@ -1,32 +1,42 @@
-import torch
+#!/usr/bin/env python
+
+import rospy
+from sensor_msgs.msg import PointCloud2
+
+from pointcloud_utils import pointcloud2_to_xyz_array, pointcloud2_to_xyzrgb_array
+from pointcloud_utils import xyz_array_to_pointcloud2
 import numpy as np
-from pytorch3d.transforms import quaternion_apply, quaternion_invert
-from pyquaternion import Quaternion
 
 
-def ego_to_cam(points, trans, pyquat):
-    """Transform points (3 x N) from ego frame into a pinhole camera
-    """
-    points = points - trans
-    rot = pyquat.rotation_matrix
-    points = rot.T @ points
-    return points.T
+class PointsProcessor:
+    def __init__(self,
+                 pc_topic='/dynamic_point_cloud',
+                 # pc_topic='/final_cost_cloud',
+                 cam_info_topic='/viz/camera_0/camera_info',
+                 path_topic='/path'):
+        self.points = None
+        self.pc_clip_limits = [1.0, 15.0]
+
+        self.pc_topic = rospy.get_param('~pointcloud_topic', pc_topic)
+        print("Subscribed to " + self.pc_topic)
+        pc_sub = rospy.Subscriber(pc_topic, PointCloud2, self.pc_callback)
 
 
-def ego_to_cam_torch(points, trans, quat):
-    """Transform points (N x 3) from ego frame into a pinhole camera
-    """
-    points = points - trans
-    quat_inv = quaternion_invert(quat)
-    quaternion_apply(quat_inv, points)
-    return points
+    @staticmethod
+    def publish_pointcloud(points, topic_name, stamp, frame_id):
+        # create PointCloud2 msg
+        pc_msg = xyz_array_to_pointcloud2(points, stamp=stamp, frame_id=frame_id)
+        pub = rospy.Publisher(topic_name, PointCloud2, queue_size=1)
+        pub.publish(pc_msg)
 
-points = torch.rand(size=(2, 3))
-trans = torch.rand(size=(1, 3))
-quat = torch.tensor([1., 0., 0., 0.])
+    def pc_callback(self, pc_msg):
+        points = pointcloud2_to_xyzrgb_array(pc_msg)
+        print(points.shape)
+        # np.savez('final_cost_cloud.npz', verts=points)
+        # print(points.shape)
 
-print(ego_to_cam_torch(points, trans, quat))
 
-print(ego_to_cam(points.cpu().numpy().T,
-                 trans.cpu().numpy().T,
-                 Quaternion(quat.cpu().numpy())))
+if __name__ == '__main__':
+    rospy.init_node('pc_processor_node')
+    proc = PointsProcessor()
+    rospy.spin()

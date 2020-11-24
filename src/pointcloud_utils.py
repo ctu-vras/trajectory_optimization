@@ -217,8 +217,28 @@ def get_xyzrgb_points(cloud_array, remove_nans=True, dtype=np.float):
 def pointcloud2_to_xyzrgb_array(cloud_msg, remove_nans=True):
     return get_xyzrgb_points(pointcloud2_to_array(cloud_msg), remove_nans=remove_nans)
 
+def get_xyzirgb_points(cloud_array, remove_nans=True, dtype=np.float):
+    """
+    Pulls out x, y, z, and rgb columns from the cloud recordarray,
+    and returns an Nx4 matrix.
+    """
+    # remove crap points
+    if remove_nans:
+        mask = np.isfinite(cloud_array['x']) & np.isfinite(cloud_array['y']) & np.isfinite(cloud_array['z']) & np.isfinite(cloud_array['rgb'])
+        cloud_array = cloud_array[mask]
+    # pull out x, y, and z values
+    points = np.zeros(list(cloud_array.shape) + [5], dtype=dtype)
+    points[..., 0] = cloud_array['x']
+    points[..., 1] = cloud_array['y']
+    points[..., 2] = cloud_array['z']
+    points[..., 3] = cloud_array['intensity']
+    points[..., 4] = cloud_array['rgb']
+    return points
 
-def xyzrgb_array_to_pointcloud2(points, stamp=None, frame_id='pc_link', seq=None):
+def pointcloud2_to_xyzirgb_array(cloud_msg, remove_nans=True):
+    return get_xyzirgb_points(pointcloud2_to_array(cloud_msg), remove_nans=remove_nans)
+
+def xyzirgb_array_to_pointcloud2(points, stamp=None, frame_id='pc_link', seq=None):
     '''
     Create a sensor_msgs.PointCloud2 from an array
     of points.
@@ -244,9 +264,10 @@ def xyzrgb_array_to_pointcloud2(points, stamp=None, frame_id='pc_link', seq=None
         PointField('x', 0, PointField.FLOAT32, 1),
         PointField('y', 4, PointField.FLOAT32, 1),
         PointField('z', 8, PointField.FLOAT32, 1),
-        PointField('r', 12, PointField.FLOAT32, 1),
-        PointField('g', 16, PointField.FLOAT32, 1),
-        PointField('b', 20, PointField.FLOAT32, 1),
+        PointField('intensity', 12, PointField.FLOAT32, 1),
+        PointField('r', 16, PointField.FLOAT32, 1),
+        PointField('g', 20, PointField.FLOAT32, 1),
+        PointField('b', 24, PointField.FLOAT32, 1),
     ]
     msg.is_bigendian = False
     msg.point_step = 24
