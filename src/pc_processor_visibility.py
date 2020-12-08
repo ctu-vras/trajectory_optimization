@@ -19,11 +19,11 @@ class PointCloudProcessor:
     def __init__(self,
                  pc_topic='/final_cost_cloud',
                  cam_info_topics=['/viz/camera_0/camera_info',
-                                  '/viz/camera_1/camera_info',
-                                  '/viz/camera_2/camera_info',
-                                  '/viz/camera_3/camera_info',
-                                  '/viz/camera_4/camera_info',
-                                  '/viz/camera_5/camera_info',
+                                  # '/viz/camera_1/camera_info',
+                                  # '/viz/camera_2/camera_info',
+                                  # '/viz/camera_3/camera_info',
+                                  # '/viz/camera_4/camera_info',
+                                  # '/viz/camera_5/camera_info',
                                   ],
                  min_dist=1.0,
                  max_dist=10.0):
@@ -69,13 +69,22 @@ class PointCloudProcessor:
 
     @staticmethod
     def remove_hidden_pts(pts):
+        # transformations from ROS coord system to Open3d
+        angle = np.pi
+        # Rx = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+        Ry = np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
+        Rz = np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
+        pts = Ry @ Rz @ pts.T
+        pts = pts.T
+        # define Open3d point cloud
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(pts)
         diameter = np.linalg.norm(
             np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound()))
         if diameter > 0:
             # print("Define parameters used for hidden_point_removal")
-            camera = [0, 0, diameter]
+            # camera = [0, 0, diameter]
+            camera = [0, 0, 0.]
             radius = diameter * 100
             # print("Get all points that are visible from given view point")
             _, pt_map = pcd.hidden_point_removal(camera, radius)
@@ -85,6 +94,9 @@ class PointCloudProcessor:
         else:
             # print('All the pts are visible here')
             pts_visible = pts
+        # back to ROS coord system
+        pts_visible = Rz.T @ Ry.T @ pts_visible.T
+        pts_visible = pts_visible.T
         return pts_visible
 
     def pc_callback(self, pc_msg):
@@ -124,18 +136,22 @@ class PointCloudProcessor:
         dist_mask = (cam_pts[2] > self.pc_clip_limits[0]) & \
                     (cam_pts[2] < self.pc_clip_limits[1])
         cam_pts = cam_pts[:, dist_mask]
+        # np.savez(f'cam_pts_{cam_frame}.npz', pts=cam_pts)
 
         # remove hidden points from current camera FOV
         cam_pts_visible = self.remove_hidden_pts(cam_pts.T)
 
-        self.publish_pointcloud(cam_pts_visible,
+        self.publish_pointcloud(cam_pts.T,
                                 output_pc_topic,
+                                rospy.Time.now(),
+                                cam_frame)
+        self.publish_pointcloud(cam_pts_visible,
+                                output_pc_topic + '_visible',
                                 rospy.Time.now(),
                                 cam_frame)
 
 
 if __name__ == '__main__':
     rospy.init_node('pc_processor_node')
-    test = PointCloudProcessor()
-
+    proc = PointCloudProcessor()
     rospy.spin()
