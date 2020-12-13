@@ -22,6 +22,9 @@ from pytorch3d.renderer import (
 )
 import time
 import cv2
+import numpy as np
+import open3d as o3d
+from tools import hidden_pts_removal
 
 
 class PointsProcessor:
@@ -94,11 +97,12 @@ class PointsProcessor:
         )
 
         n_points = verts.size()[0]
-        vert_rad = 0.01 * torch.ones(n_points, dtype=torch.float32, device=self.device)
+        vert_rad = 0.03 * torch.ones(n_points, dtype=torch.float32, device=self.device)
 
         raster_settings = PointsRasterizationSettings(
             image_size=(fovW, fovH),
             radius=vert_rad,
+            points_per_pixel=1,
         )
         rasterizer = PointsRasterizer(cameras=cameras, raster_settings=raster_settings)
         renderer = PulsarPointsRenderer(rasterizer=rasterizer).to(self.device)
@@ -106,12 +110,44 @@ class PointsProcessor:
         # Render an image
         image = renderer(point_cloud,
                          gamma=(1.0e-1,),  # Renderer blending parameter gamma, in [1., 1e-5].
-                         znear=(1.0,),
-                         zfar=(45.0,),
+                         znear=(self.pc_clip_limits[0],),
+                         zfar=(self.pc_clip_limits[1],),
                          radius_world=True,
                          bg_col=torch.ones((3,), dtype=torch.float32, device=self.device),
                          )[0]
         return image
+
+    @staticmethod
+    def remove_hidden_pts(pts: np.ndarray):
+        """
+        pts.shape = N x 3
+        """
+        # transformation from ROS coord system to Open3d
+        R = np.diag([1, -1, -1])
+        pts = R @ pts.T
+        pts = pts.T
+        # define Open3d point cloud
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(pts)
+        diameter = np.linalg.norm(
+            np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound()))
+        if diameter > 0:
+            # print("Define parameters used for hidden_point_removal")
+            # camera = [0, 0, diameter]
+            camera = [0, 0, 0.]
+            radius = diameter * 100
+            # print("Get all points that are visible from given view point")
+            _, pt_map = pcd.hidden_point_removal(camera, radius)
+            # print("Visualize result")
+            pcd_res = pcd.select_by_index(pt_map)
+            pts_visible = np.asarray(pcd_res.points)
+        else:
+            # print('All the pts are visible here')
+            pts_visible = pts
+        # back to ROS coord system
+        pts_visible = R.T @ pts_visible.T
+        pts_visible = pts_visible.T
+        return pts_visible
 
     @staticmethod
     def publish_pointcloud(points, topic_name, stamp, frame_id):
@@ -123,7 +159,7 @@ class PointsProcessor:
     def pc_callback(self, pc_msg):
         points = pointcloud2_to_xyz_array(pc_msg)
         self.pc_frame = pc_msg.header.frame_id
-        self.points = points.T
+        self.points = points
 
     def cam_info_callback(self, cam_info_msg):
         t0 = time.time()
@@ -151,7 +187,7 @@ class PointsProcessor:
         trans, quat = self.tl.lookupTransform(self.pc_frame, cam_frame, t)
 
         quat_torch = torch.tensor([quat[3], quat[0], quat[1], quat[2]]).to(self.device)
-        points_torch = torch.from_numpy(self.points).T.to(self.device)
+        points_torch = torch.from_numpy(self.points).to(self.device)
         trans_torch = torch.unsqueeze(torch.tensor(trans), 0).to(self.device)
         ego_pts_torch = self.ego_to_cam_torch(points_torch, trans_torch, quat_torch)
 
@@ -162,16 +198,33 @@ class PointsProcessor:
         # clip points between 1.0 and 5.0 meters distance from the camera
         dist_mask = (cam_pts[2] > self.pc_clip_limits[0]) & (cam_pts[2] < self.pc_clip_limits[1])
         cam_pts = cam_pts[:, dist_mask]
-        print(f'[INFO]: Number of observed points from {cam_frame} is: {cam_pts.shape[1]}')
 
-        self.publish_pointcloud(cam_pts.cpu().numpy().T, output_pc_topic, rospy.Time.now(), cam_frame)
+        self.publish_pointcloud(cam_pts.cpu().numpy().T,
+                                output_pc_topic,
+                                rospy.Time.now(),
+                                cam_frame)
+        # remove hidden points from current camera FOV
+        # cam_pts = torch.as_tensor(self.remove_hidden_pts(cam_pts.cpu().numpy().T),
+        #                           dtype=torch.float32,
+        #                           device=self.device)
+        cam_pts = torch.as_tensor(hidden_pts_removal(cam_pts.cpu().numpy().T),
+                                  dtype=torch.float32,
+                                  device=self.device)
+        print(f'[INFO]: Number of observed points from {cam_frame} is: {cam_pts.shape[0]}')
+
+        self.publish_pointcloud(cam_pts.cpu().numpy(),
+                                f'{output_pc_topic}_visible',
+                                rospy.Time.now(),
+                                cam_frame)
         # print(f'[INFO]: Processing took {1000*(time.time()-t1):.1f} ms')
 
         # render and image of observed point cloud
-        image = self.render_pc_image(cam_pts.T, intrins, fovH, fovW)
+        image = self.render_pc_image(cam_pts, intrins, fovH, fovW)
 
         image_vis = cv2.resize(image.cpu().numpy(), (fovW//2, fovH//2))
         image_vis = cv2.flip(image_vis, -1)
+        # np.savez(f'./pts/cam_pts_{cam_frame}_{time.time()}.npz', pts=cam_pts.cpu().numpy())
+        # cv2.imwrite(f'./pts/renderred_img_{cam_frame}_{time.time()}.png', image_vis)
         cv2.imshow('Rendered pc image', image_vis)
         cv2.waitKey(3)
 

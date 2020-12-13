@@ -70,11 +70,13 @@ class PointCloudProcessor:
     @staticmethod
     def remove_hidden_pts(pts):
         # transformations from ROS coord system to Open3d
-        angle = np.pi
+        # angle = np.pi
         # Rx = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
-        Ry = np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
-        Rz = np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
-        pts = Ry @ Rz @ pts.T
+        # Ry = np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
+        # Rz = np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
+        # pts = Ry @ Rz @ pts.T
+        R = np.diag([1, -1, -1])
+        pts = R @ pts.T
         pts = pts.T
         # define Open3d point cloud
         pcd = o3d.geometry.PointCloud()
@@ -95,7 +97,7 @@ class PointCloudProcessor:
             # print('All the pts are visible here')
             pts_visible = pts
         # back to ROS coord system
-        pts_visible = Rz.T @ Ry.T @ pts_visible.T
+        pts_visible = R.T @ pts_visible.T
         pts_visible = pts_visible.T
         return pts_visible
 

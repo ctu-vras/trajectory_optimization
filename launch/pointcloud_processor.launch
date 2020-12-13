@@ -11,8 +11,8 @@
         <param name="max_dist" value="10.0"/>
     </node>
 
-    <node name="play" pkg="rosbag" type="play" output="screen"
-          args="--clock -r $(arg bag_rate) -k $(arg bag)"/>
+<!--     <node name="play" pkg="rosbag" type="play" output="screen" -->
+<!--           args="-r $(arg bag_rate) -k $(arg bag)"/> -->
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find frontier_exploration)/config/$(arg rviz_config).rviz"/>
     <node if="0" name="rqt_tf_tree" pkg="rqt_tf_tree" type="rqt_tf_tree"/>

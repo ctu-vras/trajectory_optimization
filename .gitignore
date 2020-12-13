@@ -3,3 +3,5 @@
 *.bag
 *.ipynb_checkpoints
 *.npy
+
+pts/
