@@ -46,7 +46,7 @@ In order to meet the assignment requirements, I decided to do the following step
    which is considered as traversable for the robot. However, a more sofisticated way to define it,
    could be calculation of the mean height of the neighbouing cells.
    Implementation details are available at
-   [grid.py](https://github.com/RuslanAgishev/frontier_exploration/blob/master/src/grid.py).
+   [grid.py](https://github.com/RuslanAgishev/frontier_exploration/blob/path_planning/src/grid.py).
    
 2. Plan a path on the generated occupancy grid with Breadth First Search algorithm (BFS)
    to find the closest frontier from robot location.
@@ -77,5 +77,5 @@ In order to meet the assignment requirements, I decided to do the following step
 ## Appendix
 
 Experiments with the data could be found in the
-[planning.ipynb](https://github.com/RuslanAgishev/frontier_exploration/blob/master/src/planning.ipynb)
+[planning.ipynb](https://github.com/RuslanAgishev/frontier_exploration/blob/path_planning/src/planning.ipynb)
 jupyter-notebook. Among them is, for example, and A* algorithm approach for the task.
