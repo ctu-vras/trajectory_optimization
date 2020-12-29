@@ -159,64 +159,63 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          {}
-        odom:
-          base_link:
-            antenna:
-              {}
-            battery:
-              {}
-            imu:
-              {}
-            laser_base:
-              laser:
+          odom:
+            base_link:
+              antenna:
                 {}
-            left_track:
-              front_left_flipper:
-                front_left_flipper_end_point:
-                  {}
-              rear_left_flipper:
-                rear_left_flipper_end_point:
-                  {}
-            rear_right_box:
-              jetson:
+              battery:
                 {}
-              top_box:
-                omnicam:
-                  camera_0:
-                    {}
-                  camera_1:
-                    {}
-                  camera_2:
-                    {}
-                  camera_3:
-                    {}
-                  camera_4:
-                    {}
-                  camera_5:
-                    {}
-                  pano:
-                    {}
-                  pano_seg:
-                    {}
-                  ptz:
-                    {}
-                  realsense_holder_part1:
-                    realsense_holder_part2:
-                      camera_tripod_screw_link:
-                        camera_link:
-                          {}
-            right_track:
-              front_right_flipper:
-                front_right_flipper_end_point:
+              imu:
+                {}
+              laser_base:
+                laser:
                   {}
-              rear_right_flipper:
-                rear_right_flipper_end_point:
+              left_track:
+                front_left_flipper:
+                  front_left_flipper_end_point:
+                    {}
+                rear_left_flipper:
+                  rear_left_flipper_end_point:
+                    {}
+              rear_right_box:
+                jetson:
                   {}
-          base_link_orig:
-            {}
-          map_fast:
-            {}
+                top_box:
+                  omnicam:
+                    camera_0:
+                      {}
+                    camera_1:
+                      {}
+                    camera_2:
+                      {}
+                    camera_3:
+                      {}
+                    camera_4:
+                      {}
+                    camera_5:
+                      {}
+                    pano:
+                      {}
+                    pano_seg:
+                      {}
+                    ptz:
+                      {}
+                    realsense_holder_part1:
+                      realsense_holder_part2:
+                        camera_tripod_screw_link:
+                          camera_link:
+                            {}
+              right_track:
+                front_right_flipper:
+                  front_right_flipper_end_point:
+                    {}
+                rear_right_flipper:
+                  rear_right_flipper_end_point:
+                    {}
+            base_link_orig:
+              {}
+            map_fast:
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -309,12 +308,12 @@ Visualization Manager:
     - Class: rviz/Group
       Displays:
         - Class: jsk_rviz_plugin/CameraInfo
-          Enabled: false
+          Enabled: true
           Image Topic: ""
           Name: Camera 0 Info
           Topic: /viz/camera_0/camera_info
           Unreliable: false
-          Value: false
+          Value: true
           alpha: 0.20000000298023224
           color: 85; 255; 255
           edge color: 125; 125; 125
@@ -1049,18 +1048,18 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.0240683555603027
-        Y: -7.732820987701416
-        Z: 1.7460850477218628
+        X: 6.474922180175781
+        Y: 1.3920973539352417
+        Z: 2.2533955574035645
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 8
-      Pitch: 0.5547972917556763
+      Pitch: 1.3247967958450317
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.6346755027770996
+      Yaw: 2.479677200317383
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 5
