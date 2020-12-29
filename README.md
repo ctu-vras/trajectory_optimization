@@ -40,11 +40,13 @@ In order to meet the assignment requirements, I decided to do the following step
       - `1` - the cell is occupied (obstacle, untraversable)
       - `0.5` - the cell is not explored yet. This value could be adjusted for the step 3 of the algorithm.
       
-   Traversability requirement: `cell_z - robot_z > height_margin` defines if the cell is free (`0`) or
-   contains an obstacle (`1`).
+   Traversability requirement: `neighbour_z - cell_z > height_margin` for each of the 8
+   neighbouring cells (for each of cell in traversability map) defines if they are free (`0`)
+   or are part of an obstacle (`1`).
    The `height_margin` parameter could be ajusted. It defines the maximum height of the local elevation map
-   which is considered as traversable for the robot. However, a more sofisticated way to define it,
-   could be calculation of the mean height of the neighbouing cells.
+   which is considered as traversable for the robot. After this procidure the resulting obstacles on the
+   occupancy grid are inflated by the `safety_distance` parameter, which could be used to define the
+   approximate robot size.
    Implementation details are available at
    [grid.py](https://github.com/RuslanAgishev/frontier_exploration/blob/master/src/grid.py).
    
