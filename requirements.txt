@@ -1,0 +1,9 @@
+open3d_python==0.7.0.0
+matplotlib==3.3.2
+pytorch3d==0.3.0
+torch==1.7.0
+scipy==1.4.1
+numpy==1.17.0
+opencv_python==4.4.0.44
+open3d==0.12.0
+tf==1.0.0
