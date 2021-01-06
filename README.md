@@ -1,4 +1,4 @@
-# frontier_exploration
+# Frontier Exploration
 
 ## Installation
 
@@ -56,3 +56,7 @@ folder contains the following examples:
     hidden points removal example with different input point clouds as well as from different camera poses.
 - [Camera position Optimization](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_position_optimization_with_differentiable_rendering.ipynb):
     camera position optimization loop (work in progress) based on the visibility estimation.
+- [HPR, Open3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/open3d.ipynb):
+    hiddepn points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
+- [Point cloud Rendering on Image plane](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/pytorch3d.ipynb):
+    point cloud hidden points removal with Open3D and rendering on an image plane with [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.
