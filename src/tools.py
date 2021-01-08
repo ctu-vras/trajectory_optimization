@@ -57,14 +57,20 @@ def hidden_pts_removal(pts: torch.Tensor, device, R_param: int=2) -> torch.Tenso
     """
     # Initialize the points visible from camera location
     flippedPoints = sphericalFlip(pts, device, R_param)
-    try:
-        visibleHull = convexHull(flippedPoints, device)
-        visibleVertex = visibleHull.vertices[:-1]  # indexes of visible points
 
-        pts_visible = pts[visibleVertex, :]
-    except:
-        print("HPR: Not enough pts to construct convex hull")
-        pts_visible = pts
+    # try:
+    #     visibleHull = convexHull(flippedPoints, device)
+    #     visibleVertex = visibleHull.vertices[:-1]  # indexes of visible points
+    #
+    #     pts_visible = pts[visibleVertex, :]
+    # except:
+    #     print("HPR: Not enough pts to construct convex hull")
+    #     pts_visible = pts
+
+    visibleHull = convexHull(flippedPoints, device)
+    visibleVertex = visibleHull.vertices[:-1]  # indexes of visible points
+
+    pts_visible = pts[visibleVertex, :]
     return pts_visible
 
 
