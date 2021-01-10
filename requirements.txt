@@ -1,6 +1,6 @@
 open3d_python==0.7.0.0
 matplotlib==3.3.2
-pytorch3d==0.3.0
+#pytorch3d==0.3.0
 torch==1.7.0
 scipy==1.4.1
 numpy==1.17.0
