@@ -16,6 +16,9 @@ conda activate dl
 cd ~/catkin_ws/src/frontier_exploration/
 pip install -r requirements.txt
 ```
+Follow [pytorch3d](https://github.com/facebookresearch/pytorch3d/blob/master/INSTALL.md)
+installation instructions.
+
 Build the ROS package (tested with Ubuntu 18.04):
 ```
 cd ~/catkin_ws
@@ -57,6 +60,6 @@ folder contains the following examples:
 - [Camera position Optimization](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_position_optimization_with_differentiable_rendering.ipynb):
     camera position optimization loop (work in progress) based on the visibility estimation.
 - [HPR, Open3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/open3d.ipynb):
-    hiddepn points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
+    hidden points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
 - [Point cloud Rendering on Image plane](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/pytorch3d.ipynb):
     point cloud hidden points removal with Open3D and rendering on an image plane with [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.
