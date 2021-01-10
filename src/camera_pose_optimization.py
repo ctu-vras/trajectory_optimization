@@ -19,26 +19,29 @@ from tools import hidden_pts_removal
 
 
 class Model(nn.Module):
-    def __init__(self, points, image_ref, dist_init, elev_init, azim_init):
+    def __init__(self, points, dist_init, elev_init, azim_init):
         super().__init__()
         self.points = points
         self.device = points.device
         self.renderer = None
-        self.gamma = nn.Parameter(
-            torch.tensor([1.0e-1]).to(points.device))  # Renderer blending parameter gamma, in [1., 1e-5].
-        self.znear = nn.Parameter(torch.tensor([1.0]).to(points.device))
-        self.zfar = nn.Parameter(torch.tensor([15.0]).to(points.device))
+        # Renderer blending parameter gamma, in [1., 1e-5].
+        self.gamma = torch.tensor([1.0e-1]).to(points.device)
+        self.znear = torch.tensor([1.0]).to(points.device)
+        self.zfar = torch.tensor([15.0]).to(points.device)
         self.bg_col = torch.ones((3,), dtype=torch.float32, device=points.device)
-
-        image_ref = torch.as_tensor(image_ref[..., :3], dtype=torch.float32)
-        self.register_buffer('image_ref', image_ref)
 
         # Create an optimizable parameter for distance, elevation, azimuth of the camera.
         self.camera_dist_elev_azim = nn.Parameter(
-            torch.from_numpy(np.array([dist_init, elev_init, azim_init], dtype=np.float32)).to(points.device))
+            torch.as_tensor([dist_init, elev_init, azim_init], dtype=torch.float32).to(points.device))
 
-        self.K, self.width, self.height = self.load_intrinsics()
+        K, width, height = self.load_intrinsics()
+        self.K = K.to(points.device)
+        self.width = torch.tensor([width]).to(points.device)
+        self.height = torch.tensor([height]).to(points.device)
         self.raster_settings = self.load_raster_setting(self.width, self.height)
+        self.eps = torch.tensor([1.0e-6]).to(points.device)
+        self.min_dist = torch.tensor([1.0]).to(points.device)
+        self.max_dist = torch.tensor([10.0]).to(points.device)
 
     def load_raster_setting(self, width, height):
         n_points = self.points.size()[0]
@@ -52,16 +55,11 @@ class Model(nn.Module):
 
     @staticmethod
     def load_intrinsics():
-        cam_info_K = (758.03967, 0.0, 621.46572, 0.0, 761.62359, 756.86402, 0.0, 0.0, 1.0)
-        width, height = 1232, 1616
-
-        K = torch.zeros([4, 4]).to(device)
-        K[0][0] = cam_info_K[0]
-        K[0][2] = cam_info_K[2]
-        K[1][1] = cam_info_K[4]
-        K[1][2] = cam_info_K[5]
-        K[2][2] = 1
-        K[3][3] = 1
+        width, height = 1232., 1616.
+        K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
+                          [0.,        761.62359, 756.86402, 0.],
+                          [0.,        0.,        1.,        0.],
+                          [0.,        0.,        0.,        1.]]).to(device)
         K = K.unsqueeze(0)
         return K, width, height
 
@@ -102,55 +100,55 @@ class Model(nn.Module):
         verts = self.to_camera_frame(self.points, R, T)
 
         # remove pts that are outside of the camera FOV
-        verts = get_cam_frustum_pts(verts.T,
-                                    self.height, self.width,
-                                    self.K.squeeze(0),
-                                    min_dist=1.0, max_dist=10.0).T
-
-        verts_visible = hidden_pts_removal(verts.detach(), device=self.device)
-        print(f'Number of visible points: {verts_visible.size()[0]}/{verts.size()[0]}')
+        verts_cam = get_cam_frustum_pts(verts.T,
+                                        self.height, self.width,
+                                        self.K.squeeze(0),
+                                        min_dist=self.min_dist, max_dist=self.max_dist).T
+        verts_visible = hidden_pts_removal(verts_cam.detach(), device=self.device)
+        # verts_visible = verts_cam
+        N_visible_pts = verts_visible.size()[0]
+        # print(f'Number of visible points: {N_visible_pts}/{verts.size()[0]}')
 
         # render point cloud on an image plane
         image = self.render_pc_image(verts)
         # image = self.render_pc_image(verts_visible)
-        return image
+        return image, N_visible_pts
 
-    def criterion(self, image):
+    def criterion(self, image, image_ref):
         # Calculate the loss
-        loss = torch.mean((image - self.image_ref) ** 2)
+        loss = torch.mean((image - image_ref) ** 2)
+        return loss
+
+    def criterion_pts(self, N_visible_pts):
+        # Calculate the loss based on the number of visible points in cloud
+        N_visible_pts = torch.tensor([N_visible_pts], dtype=torch.float, requires_grad=True).to(self.device)
+        loss = 1. / (N_visible_pts + self.eps)
         return loss
 
 
 if __name__ == "__main__":
-    # Setup
+    # Setup device
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu")
-
-    # Set paths
+    # Load point cloud
     obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
     # obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456663.5413494.npz"
-    # Load point cloud
     pts_np = np.load(obj_filename)['pts'].transpose()
-    verts = torch.Tensor(pts_np).to(device)
+    verts = torch.tensor(pts_np).to(device)
     # rgb = (verts - torch.min(verts)) / torch.max(verts - torch.min(verts)).to(device)
     rgb = torch.zeros_like(verts)
 
     point_cloud = Pointclouds(points=[verts], features=[rgb])
 
     # Camera intrinsics
-    cam_info_K = (758.03967, 0.0, 621.46572, 0.0, 761.62359, 756.86402, 0.0, 0.0, 1.0)
-    width, height = 1232, 1616
-
-    K = torch.zeros([4, 4]).to(device)
-    K[0][0] = cam_info_K[0]
-    K[0][2] = cam_info_K[2]
-    K[1][1] = cam_info_K[4]
-    K[1][2] = cam_info_K[5]
-    K[2][2] = 1
-    K[3][3] = 1
+    width, height = 1232., 1616.
+    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
+                      [0., 761.62359, 756.86402, 0.],
+                      [0., 0., 1., 0.],
+                      [0., 0., 0., 1.]]).to(device)
     K = K.unsqueeze(0)
 
     # Initialize a camera.
@@ -184,21 +182,25 @@ if __name__ == "__main__":
 
     # Initialize a model
     model = Model(points=verts,
-                  image_ref=image_ref,
                   dist_init=-1.0,
                   elev_init=10,
-                  azim_init=30).to(device)
-
+                  azim_init=50).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
+
+    for p in model.parameters():
+        print(p)
 
     # Run optimization loop
     loop = tqdm(range(100))
     for i in loop:
         optimizer.zero_grad()
-        image = model()
-        loss = model.criterion(image)
+        image, N_visible_pts = model()
+        # loss = model.criterion(image, image_ref)
+        # loss.backward()
+        loss = model.criterion_pts(N_visible_pts)
         loss.backward()
+        print(loss)
         optimizer.step()
 
         loop.set_description('Optimizing (loss %.4f)' % loss.data)
