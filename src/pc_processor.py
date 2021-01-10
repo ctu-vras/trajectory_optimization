@@ -183,15 +183,15 @@ class PointsProcessor:
                                 cam_frame)
         # print(f'[INFO]: Processing took {1000*(time.time()-t1):.1f} ms')
 
-        # render and image of observed point cloud
-        image = self.render_pc_image(points, intrins, img_height, img_width)
-
-        image_vis = cv2.resize(image.cpu().numpy(), (img_width // 2, img_height // 2))
-        image_vis = cv2.flip(image_vis, -1)
-        # np.savez(f'./pts/cam_pts_{cam_frame}_{time.time()}.npz', pts=points.cpu().numpy())
-        # cv2.imwrite(f'./pts/renderred_img_{cam_frame}_{time.time()}.png', image_vis)
-        cv2.imshow('Rendered pc image', image_vis)
-        cv2.waitKey(3)
+        # # render and image of observed point cloud
+        # image = self.render_pc_image(points, intrins, img_height, img_width)
+        #
+        # image_vis = cv2.resize(image.cpu().numpy(), (img_width // 2, img_height // 2))
+        # image_vis = cv2.flip(image_vis, -1)
+        # # np.savez(f'./pts/cam_pts_{cam_frame}_{time.time()}.npz', pts=points.cpu().numpy())
+        # # cv2.imwrite(f'./pts/renderred_img_{cam_frame}_{time.time()}.png', image_vis)
+        # cv2.imshow('Rendered pc image', image_vis)
+        # cv2.waitKey(3)
 
 
 if __name__ == '__main__':

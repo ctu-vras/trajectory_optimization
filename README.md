@@ -50,6 +50,13 @@ The hidden points removal (HPR) algorithm implementation is based on the article
 The resultant point cloud rendering on an image plane is done with
 [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.
 
+### Multiple cameras:
+
+<img src="./data/hpr_cams_01234.gif">
+
+In this example, the point cloud visibility is estimated for each individual camera
+(in its field of view and the distance range) separately.
+The combined point cloud is then visualized in the robot `base_link` frame.
 
 ### Examples
 
