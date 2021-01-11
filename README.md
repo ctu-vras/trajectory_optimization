@@ -2,11 +2,14 @@
 
 ## Installation
 
-Clone the package to ROS workspace:
+Clone the package and dependencies to ROS workspace:
 ```bash
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws/src
 git clone https://github.com/RuslanAgishev/frontier_exploration.git
+git clone https://github.com/ros/geometry2
+git clone https://github.com/ros/geometry
+git clone https://github.com/ros-perception/vision_opencv
 ```
 Setup python3 environment (called `dl` in this example) for the package with
 [conda](https://docs.conda.io/en/latest/miniconda.html):
