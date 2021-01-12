@@ -15,6 +15,8 @@ from pytorch3d.renderer import (
     NormWeightedCompositor,
     PerspectiveCameras
 )
+import rospy
+from nav_msgs.msg import Odometry
 
 
 # Torch HPR
@@ -170,3 +172,27 @@ def get_cam_frustum_pts(points, img_height, img_width, intrins, min_dist=1.0, ma
                  (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
     points = points[:, frame_mask]
     return points
+
+
+def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
+    odom_msg_0 = Odometry()
+    odom_msg_0.header.stamp = rospy.Time.now()
+    odom_msg_0.header.frame_id = frame
+    odom_msg_0.pose.pose.position.x = pose[0]
+    odom_msg_0.pose.pose.position.y = pose[1]
+    odom_msg_0.pose.pose.position.z = pose[2]
+    odom_msg_0.pose.pose.orientation.x = orient[0]
+    odom_msg_0.pose.pose.orientation.y = orient[1]
+    odom_msg_0.pose.pose.orientation.z = orient[2]
+    odom_msg_0.pose.pose.orientation.w = orient[3]
+    pub = rospy.Publisher(topic, Odometry, queue_size=1)
+    pub.publish(odom_msg_0)
+
+
+def denormalize(x):
+    """Scale image to range 0..1 for correct plot"""
+    x_max = np.percentile(x, 98)
+    x_min = np.percentile(x, 2)
+    x = (x - x_min) / (x_max - x_min)
+    x = x.clip(0, 1)
+    return x

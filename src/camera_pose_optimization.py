@@ -14,12 +14,25 @@ from pytorch3d.renderer import (
     PointsRasterizer,
     PerspectiveCameras
 )
+from pytorch3d.loss import chamfer_distance
+from pytorch3d.transforms import matrix_to_quaternion
+
 from tools import get_cam_frustum_pts
 from tools import hidden_pts_removal
+from tools import render_pc_image
+from tools import publish_odom
+from tools import denormalize
+import rospy
 
 
 class Model(nn.Module):
-    def __init__(self, points, dist_init, elev_init, azim_init):
+    def __init__(self,
+                 points,
+                 dist_init,
+                 elev_init,
+                 azim_init,
+                 K,
+                 height, width):
         super().__init__()
         self.points = points
         self.device = points.device
@@ -34,34 +47,12 @@ class Model(nn.Module):
         self.camera_dist_elev_azim = nn.Parameter(
             torch.as_tensor([dist_init, elev_init, azim_init], dtype=torch.float32).to(points.device))
 
-        K, width, height = self.load_intrinsics()
         self.K = K.to(points.device)
         self.width = torch.tensor([width]).to(points.device)
         self.height = torch.tensor([height]).to(points.device)
-        self.raster_settings = self.load_raster_setting(self.width, self.height)
         self.eps = torch.tensor([1.0e-6]).to(points.device)
         self.min_dist = torch.tensor([1.0]).to(points.device)
         self.max_dist = torch.tensor([10.0]).to(points.device)
-
-    def load_raster_setting(self, width, height):
-        n_points = self.points.size()[0]
-        vert_rad = 0.003 * torch.ones(n_points, dtype=torch.float32, device=device)
-        raster_settings = PointsRasterizationSettings(
-            image_size=(width, height),
-            radius=vert_rad,
-            points_per_pixel=1
-        )
-        return raster_settings
-
-    @staticmethod
-    def load_intrinsics():
-        width, height = 1232., 1616.
-        K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
-                          [0.,        761.62359, 756.86402, 0.],
-                          [0.,        0.,        1.,        0.],
-                          [0.,        0.,        0.,        1.]]).to(device)
-        K = K.unsqueeze(0)
-        return K, width, height
 
     def to_camera_frame(self, verts, R, T):
         R_inv = R.squeeze().T
@@ -69,57 +60,28 @@ class Model(nn.Module):
         verts_cam = verts_cam.T
         return verts_cam
 
-    def render_pc_image(self, verts):
-        # verts_norm = verts - torch.min(verts)
-        # rgb = verts_norm / torch.max(verts_norm).to(self.device)
-        rgb = torch.zeros_like(verts)
-        point_cloud = Pointclouds(points=[verts], features=[rgb])
-
-        R = torch.eye(3, dtype=torch.float32, device=self.device)[None, ...]
-        T = torch.zeros((1, 3), dtype=torch.float32, device=self.device)
-        cameras = PerspectiveCameras(R=R, T=T, K=self.K, device=self.device)
-        self.renderer = PulsarPointsRenderer(
-            rasterizer=PointsRasterizer(cameras=cameras, raster_settings=self.raster_settings),
-            n_channels=3
-        ).to(self.device)
-        image = self.renderer(point_cloud.clone(),
-                              gamma=self.gamma,
-                              znear=self.znear,
-                              zfar=self.zfar,
-                              bg_col=self.bg_col,
-                              )[0]
-        return image
-
-    def forward(self):
-        # Render the image using the updated camera position. Based on the new position of the
-        # camera we calculate the rotation and translation matrices
-        distance, elevation, azimuth = self.camera_dist_elev_azim
-        R, T = look_at_view_transform(distance, elevation, azimuth, device=device)
-
-        # transform points to camera frame
-        verts = self.to_camera_frame(self.points, R, T)
-
+    def pc_visibility_estimation(self, verts):
         # remove pts that are outside of the camera FOV
         verts_cam = get_cam_frustum_pts(verts.T,
                                         self.height, self.width,
                                         self.K.squeeze(0),
                                         min_dist=self.min_dist, max_dist=self.max_dist).T
         verts_visible = hidden_pts_removal(verts_cam.detach(), device=self.device)
-        # verts_visible = verts_cam
-        N_visible_pts = verts_visible.size()[0]
-        # print(f'Number of visible points: {N_visible_pts}/{verts.size()[0]}')
+        return verts_visible
 
-        # render point cloud on an image plane
-        image = self.render_pc_image(verts)
-        # image = self.render_pc_image(verts_visible)
-        return image, N_visible_pts
+    def forward(self):
+        # Based on the new position of the camera we calculate the rotation and translation matrices
+        distance, elevation, azimuth = self.camera_dist_elev_azim
+        R, T = look_at_view_transform(distance, elevation, azimuth, device=device)
 
-    def criterion(self, image, image_ref):
-        # Calculate the loss
-        loss = torch.mean((image - image_ref) ** 2)
-        return loss
+        # transform points to camera frame
+        verts = self.to_camera_frame(self.points, R, T)
 
-    def criterion_pts(self, N_visible_pts):
+        # point cloud visibility estimation
+        verts_visible = self.pc_visibility_estimation(verts)
+        return verts, verts_visible
+
+    def criterion(self, N_visible_pts):
         # Calculate the loss based on the number of visible points in cloud
         N_visible_pts = torch.tensor([N_visible_pts], dtype=torch.float, requires_grad=True).to(self.device)
         loss = 1. / (N_visible_pts + self.eps)
@@ -127,91 +89,84 @@ class Model(nn.Module):
 
 
 if __name__ == "__main__":
+    rospy.init_node('cam_pose_opt')
     # Setup device
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu")
-    # Load point cloud
+
+    # Load reference point cloud
     obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
     # obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456663.5413494.npz"
     pts_np = np.load(obj_filename)['pts'].transpose()
     verts = torch.tensor(pts_np).to(device)
-    # rgb = (verts - torch.min(verts)) / torch.max(verts - torch.min(verts)).to(device)
     rgb = torch.zeros_like(verts)
+    point_cloud_ref = Pointclouds(points=[verts], features=[rgb])
 
-    point_cloud = Pointclouds(points=[verts], features=[rgb])
+    # Initialize reference camera extrinsics
+    R = torch.eye(3).unsqueeze(0).to(device)
+    T = torch.Tensor([[0., 0., 0.]]).to(device)
 
     # Camera intrinsics
     width, height = 1232., 1616.
-    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
-                      [0., 761.62359, 756.86402, 0.],
-                      [0., 0., 1., 0.],
-                      [0., 0., 0., 1.]]).to(device)
+    K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
+                      [0.,        761.62359, 756.86402, 0.],
+                      [0.,        0.,        1.,        0.],
+                      [0.,        0.,        0.,        1.]]).to(device)
     K = K.unsqueeze(0)
+    # Render reference point cloud on an image plane
+    image_ref = render_pc_image(verts, R, T, K, height, width, device).cpu().numpy()
 
-    # Initialize a camera.
-    R = torch.eye(3).unsqueeze(0).to(device)
-    T = torch.Tensor([[0., 0., 0.]]).to(device)
-    cameras = PerspectiveCameras(device=device, R=R, T=T, K=K)
-
-    # Define the settings for rasterization.
-    n_points = verts.size()[0]
-    vert_rad = 0.003 * torch.ones(n_points, dtype=torch.float32, device=device)
-    raster_settings = PointsRasterizationSettings(
-        image_size=(width, height),
-        radius=vert_rad,
-        points_per_pixel=1
-    )
-    # Create a renderer
-    rasterizer = PointsRasterizer(cameras=cameras, raster_settings=raster_settings)
-    renderer = PulsarPointsRenderer(
-        rasterizer=rasterizer,
-        n_channels=3
-    ).to(device)
-
-    # Reference image
-    image_ref = renderer(
-        point_cloud,
-        gamma=(1.0e-1,),  # Renderer blending parameter gamma, in [1., 1e-5].
-        znear=(1.0,),
-        zfar=(15.0,),
-        bg_col=torch.ones((3,), dtype=torch.float32, device=device),
-    )[0]
-
-    # Initialize a model
+    # Initialize a model: and define starting position of the camera (not at the origin)
+    # with its distance in meters, elevation and azimuth angles in degrees
     model = Model(points=verts,
-                  dist_init=-1.0,
-                  elev_init=10,
-                  azim_init=50).to(device)
+                  dist_init=-5.0,  # [m]
+                  elev_init=40,  # [deg]
+                  azim_init=20,  # [deg]
+                  K=K, height=height, width=width).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
-
-    for p in model.parameters():
-        print(p)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
     # Run optimization loop
-    loop = tqdm(range(100))
-    for i in loop:
+    video_writer = None
+    for i in tqdm(range(1000)):
         optimizer.zero_grad()
-        image, N_visible_pts = model()
-        # loss = model.criterion(image, image_ref)
-        # loss.backward()
-        loss = model.criterion_pts(N_visible_pts)
+        verts, verts_visible = model()
+        point_cloud = Pointclouds(points=[verts], features=[torch.zeros_like(verts)])
+        loss, _ = chamfer_distance(point_cloud, point_cloud_ref)
         loss.backward()
-        print(loss)
+        loss_pts = model.criterion(verts_visible.size()[0])
+        loss_pts.backward()
         optimizer.step()
 
-        loop.set_description('Optimizing (loss %.4f)' % loss.data)
-        # if loss.item() < 200:
-        #     break
+        if rospy.is_shutdown():
+            break
+        # ROS msgs publishers
+        # distance, elevation, azimuth = model.camera_dist_elev_azim
+        # rot, tran = look_at_view_transform(distance, elevation, azimuth, device=device)
+        # quat = matrix_to_quaternion(rot).squeeze(0)  # [w, x, y, z]
+        # publish_odom(tran.squeeze(0), [quat[1], quat[2], quat[3], quat[0]])
 
         if i % 10 == 0:
-            image = image[..., :3].detach().squeeze().cpu().numpy()
+            image = render_pc_image(verts, R, T, K, height, width, device)
+            image_visible = render_pc_image(verts_visible, R, T, K, height, width, device)
             # print(f'Loss: {loss.item()}')
 
-            image_vis = cv2.resize(image[..., :3], (512, 512))
-            image_ref_vis = cv2.resize(image_ref.cpu().numpy()[..., :3], (512, 512))
-            cv2.imshow('Camera view', np.concatenate([image_vis, image_ref_vis], axis=1))
+            image = cv2.resize(image.detach().cpu().numpy()[..., :3], (512, 512))
+            image_visible = cv2.resize(image_visible.detach().cpu().numpy()[..., :3], (512, 512))
+            image_ref = cv2.resize(image_ref[..., :3], (512, 512))
+            frame = np.concatenate([image, image_visible, image_ref], axis=1)
+            cv2.putText(frame, f'Number of visible points: {verts_visible.size()[0]}/{verts.size()[0]}',
+                        (256, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_4)
+            cv2.imshow('Current view / Visible points / Target view', frame)
             cv2.waitKey(3)
+
+            # # write video
+            # if video_writer is None:
+            #     fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            #     video_writer = cv2.VideoWriter('./output.mp4',
+            #                                    fourcc, 10,
+            #                                    (frame.shape[1], frame.shape[0]))
+            # video_writer.write(np.asarray(255 * denormalize(frame), dtype=np.uint8))
