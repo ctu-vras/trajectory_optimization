@@ -34,25 +34,19 @@ class Model(nn.Module):
                  K,
                  height, width):
         super().__init__()
-        self.points = points
-        self.device = points.device
-        self.renderer = None
-        # Renderer blending parameter gamma, in [1., 1e-5].
-        self.gamma = torch.tensor([1.0e-1]).to(points.device)
-        self.znear = torch.tensor([1.0]).to(points.device)
-        self.zfar = torch.tensor([15.0]).to(points.device)
-        self.bg_col = torch.ones((3,), dtype=torch.float32, device=points.device)
+        self.device = torch.device('cuda')
+        self.points = torch.tensor(points, requires_grad=True).to(self.device)
 
         # Create an optimizable parameter for distance, elevation, azimuth of the camera.
         self.camera_dist_elev_azim = nn.Parameter(
-            torch.as_tensor([dist_init, elev_init, azim_init], dtype=torch.float32).to(points.device))
+            torch.as_tensor([dist_init, elev_init, azim_init], dtype=torch.float32).to(self.device))
 
-        self.K = K.to(points.device)
-        self.width = torch.tensor([width]).to(points.device)
-        self.height = torch.tensor([height]).to(points.device)
-        self.eps = torch.tensor([1.0e-6]).to(points.device)
-        self.min_dist = torch.tensor([1.0]).to(points.device)
-        self.max_dist = torch.tensor([10.0]).to(points.device)
+        self.K = K.to(self.device)
+        self.width = torch.tensor([width]).to(self.device)
+        self.height = torch.tensor([height]).to(self.device)
+        self.eps = torch.tensor([1.0e-6]).to(self.device)
+        self.min_dist = torch.tensor([1.0]).to(self.device)
+        self.max_dist = torch.tensor([10.0]).to(self.device)
 
     def to_camera_frame(self, verts, R, T):
         R_inv = R.squeeze().T
@@ -62,12 +56,12 @@ class Model(nn.Module):
 
     def pc_visibility_estimation(self, verts):
         # remove pts that are outside of the camera FOV
-        verts_cam = get_cam_frustum_pts(verts.T,
+        verts = get_cam_frustum_pts(verts.T,
                                         self.height, self.width,
                                         self.K.squeeze(0),
                                         min_dist=self.min_dist, max_dist=self.max_dist).T
-        verts_visible = hidden_pts_removal(verts_cam.detach(), device=self.device)
-        return verts_visible
+        # verts = hidden_pts_removal(verts.detach(), device=self.device)
+        return verts
 
     def forward(self):
         # Based on the new position of the camera we calculate the rotation and translation matrices
@@ -78,13 +72,13 @@ class Model(nn.Module):
         verts = self.to_camera_frame(self.points, R, T)
 
         # point cloud visibility estimation
-        verts_visible = self.pc_visibility_estimation(verts)
-        return verts, verts_visible
+        verts = self.pc_visibility_estimation(verts)
+        loss = self.criterion(torch.ones_like(verts, requires_grad=True))
+        return verts, loss
 
-    def criterion(self, N_visible_pts):
+    def criterion(self, rewards):
         # Calculate the loss based on the number of visible points in cloud
-        N_visible_pts = torch.tensor([N_visible_pts], dtype=torch.float, requires_grad=True).to(self.device)
-        loss = 1. / (N_visible_pts + self.eps)
+        loss = 1. / (torch.sum(rewards) + self.eps)
         return loss
 
 
@@ -133,12 +127,11 @@ if __name__ == "__main__":
     video_writer = None
     for i in tqdm(range(1000)):
         optimizer.zero_grad()
-        verts, verts_visible = model()
+        verts, loss = model()
         point_cloud = Pointclouds(points=[verts], features=[torch.zeros_like(verts)])
-        loss, _ = chamfer_distance(point_cloud, point_cloud_ref)
+        # loss_icp, _ = chamfer_distance(point_cloud, point_cloud_ref)
+        # loss_icp.backward()
         loss.backward()
-        loss_pts = model.criterion(verts_visible.size()[0])
-        loss_pts.backward()
         optimizer.step()
 
         if rospy.is_shutdown():
@@ -151,15 +144,16 @@ if __name__ == "__main__":
 
         if i % 10 == 0:
             image = render_pc_image(verts, R, T, K, height, width, device)
-            image_visible = render_pc_image(verts_visible, R, T, K, height, width, device)
+            # image_visible = render_pc_image(verts_visible, R, T, K, height, width, device)
             # print(f'Loss: {loss.item()}')
 
             image = cv2.resize(image.detach().cpu().numpy()[..., :3], (512, 512))
-            image_visible = cv2.resize(image_visible.detach().cpu().numpy()[..., :3], (512, 512))
+            # image_visible = cv2.resize(image_visible.detach().cpu().numpy()[..., :3], (512, 512))
             image_ref = cv2.resize(image_ref[..., :3], (512, 512))
-            frame = np.concatenate([image, image_visible, image_ref], axis=1)
-            cv2.putText(frame, f'Number of visible points: {verts_visible.size()[0]}/{verts.size()[0]}',
-                        (256, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_4)
+            frame = np.concatenate([image, image_ref], axis=1)
+            # frame = np.concatenate([image, image_visible, image_ref], axis=1)
+            # cv2.putText(frame, f'Number of visible points: {verts_visible.size()[0]}/{verts.size()[0]}',
+            #             (256, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_4)
             cv2.imshow('Current view / Visible points / Target view', frame)
             cv2.waitKey(3)
 
