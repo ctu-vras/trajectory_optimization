@@ -14,7 +14,7 @@ git clone https://github.com/ros-perception/vision_opencv
 Setup python3 environment (called `dl` in this example) for the package with
 [conda](https://docs.conda.io/en/latest/miniconda.html):
 ```
-conda create env -n dl
+conda create -n dl
 conda activate dl
 cd ~/catkin_ws/src/frontier_exploration/
 pip install -r requirements.txt
