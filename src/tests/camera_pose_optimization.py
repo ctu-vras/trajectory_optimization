@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../')
 import torch
 from tqdm.notebook import tqdm
 import torch.nn as nn
@@ -92,8 +94,8 @@ if __name__ == "__main__":
         device = torch.device("cpu")
 
     # Load reference point cloud
-    obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
-    # obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456663.5413494.npz"
+    obj_filename = "../../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
+    # obj_filename = "../../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456663.5413494.npz"
     pts_np = np.load(obj_filename)['pts'].transpose()
     verts = torch.tensor(pts_np).to(device)
     rgb = torch.zeros_like(verts)

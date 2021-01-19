@@ -6,7 +6,6 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
-import numpy as np
 
 
 PI = 3.14159265359
@@ -16,7 +15,7 @@ def rewards_from_pose(camera_xy_yaw, polygon, points, device=torch.device('cuda'
     yaw = camera_xy_yaw[2]
     rot = torch.tensor([[torch.cos(yaw), -torch.sin(yaw)],
                         [torch.sin(yaw),  torch.cos(yaw)]]).to(device)
-    visibility_polygon = Polygon( (rot @ polygon.T).T + camera_xy_yaw[:2] )
+    visibility_polygon = Polygon((rot @ polygon.T).T + camera_xy_yaw[:2])
     rewards = torch.tensor(0.0).to(device)
     for i in range(len(points)):
         if visibility_polygon.contains(Point(points[i])):

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import os
+import sys
+sys.path.append('../')
 import torch
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -45,8 +47,8 @@ K = K.unsqueeze(0)
 width, height = 1232, 1616
 
 # Load point cloud
-obj_filename = "../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
-# path = "../../../../catkin_ws/src/frontier_exploration/pts/"
+obj_filename = "../../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
+# path = "../../../../../catkin_ws/src/frontier_exploration/pts/"
 # np.random.seed(0)
 # obj_filename = os.path.join(path, np.random.choice(os.listdir(path)))
 pts_np = np.load(obj_filename)['pts'].transpose()
