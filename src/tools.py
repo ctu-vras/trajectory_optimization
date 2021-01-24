@@ -162,16 +162,15 @@ def render_pc_image(
 def get_cam_frustum_pts(points, img_height, img_width, intrins, min_dist=1.0, max_dist=10.0):
     # clip points between MIN_DIST and MAX_DIST meters distance from the camera
     dist_mask = (points[2] > min_dist) & (points[2] < max_dist)
-    points = points[:, dist_mask]
 
     # find points that are observed by the camera (in its FOV)
     pts_homo = intrins[:3, :3] @ points
     pts_homo[:2] /= pts_homo[2:3]
-    frame_mask = (pts_homo[2] > 0) & \
-                 (pts_homo[0] > 1) & (pts_homo[0] < img_width - 1) & \
-                 (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
-    points = points[:, frame_mask]
-    return points
+    fov_mask = (pts_homo[2] > 0) & \
+               (pts_homo[0] > 1) & (pts_homo[0] < img_width - 1) & \
+               (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
+    points = points[:, torch.logical_and(dist_mask, fov_mask)].T
+    return points, dist_mask, fov_mask
 
 
 def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):

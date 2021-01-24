@@ -150,10 +150,11 @@ def state_visualizer(camera_xy_yaw,
         dist = torch.linalg.norm(camera_xy_yaw[:2] - p)
         if (dist >= r and dist <= R):
             N_range_pts += 1
+            plt.plot(p[0], p[1], 'ro', color='b')
         if visibility_polygon.contains(Point(p)):
             plt.plot(p[0], p[1], 'ro', color='b')
             N_visible_pts += 1
-    return N_visible_pts, N_range_pts
+    return N_visible_pts, N_range_ptsros
 
 
 # torch.manual_seed(0)
@@ -162,7 +163,7 @@ dist_range = [-10, 10]
 pts = torch.rand((N_points, 2)) * (dist_range[1] - dist_range[0]) + dist_range[0]
 robot_x = torch.rand(1) * (dist_range[1] - dist_range[0])/2 + dist_range[0]/2
 robot_y = torch.rand(1) * (dist_range[1] - dist_range[0])/2 + dist_range[0]/2
-robot_yaw = robot_x = torch.rand(1) * 2*PI - PI
+robot_yaw = torch.rand(1) * 2*PI - PI
 
 model = Model(pts, robot_x[0], robot_y[0], robot_yaw[0])
 # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
