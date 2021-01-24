@@ -31,11 +31,11 @@ class PointsProcessor:
     def __init__(self,
                  pc_topic='/final_cost_cloud',
                  cam_info_topics=['/viz/camera_0/camera_info',
-                                  # '/viz/camera_1/camera_info',
-                                  # '/viz/camera_2/camera_info',
-                                  # '/viz/camera_3/camera_info',
-                                  # '/viz/camera_4/camera_info',
-                                  # '/viz/camera_5/camera_info'
+                                  '/viz/camera_1/camera_info',
+                                  '/viz/camera_2/camera_info',
+                                  '/viz/camera_3/camera_info',
+                                  '/viz/camera_4/camera_info',
+                                  '/viz/camera_5/camera_info'
                                   ],
                  min_dist=1.0,
                  max_dist=15.0,
@@ -68,15 +68,14 @@ class PointsProcessor:
     def get_cam_frustum_pts(self, points, img_height, img_width, intrins):
         # clip points between MIN_DIST and MAX_DIST meters distance from the camera
         dist_mask = (points[2] > self.pc_clip_limits[0]) & (points[2] < self.pc_clip_limits[1])
-        points = points[:, dist_mask]
 
         # find points that are observed by the camera (in its FOV)
         pts_homo = intrins[:3, :3] @ points
         pts_homo[:2] /= pts_homo[2:3]
-        frame_mask = (pts_homo[2] > 0) & \
+        fov_mask = (pts_homo[2] > 0) & \
                      (pts_homo[0] > 1) & (pts_homo[0] < img_width - 1) & \
                      (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
-        points = points[:, frame_mask]
+        points = points[:, torch.logical_and(dist_mask, fov_mask)]
         return points
 
     def render_pc_image(self,
