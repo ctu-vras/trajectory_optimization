@@ -67,7 +67,9 @@ The [./notebooks](https://github.com/RuslanAgishev/frontier_exploration/tree/mas
 folder contains the following examples:
 - [HPR](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/hidden_points_removal.ipynb):
     hidden points removal example with different input point clouds as well as from different camera poses.
-- [Camera position Optimization](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_pose_optimization_3d.ipynb):
+- Camera position Optimization,
+[in 2D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_pose_optimization_2d.ipynb)
+[in 3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_pose_optimization_3d.ipynb):
     camera position optimization loop based on the point cloud visibility estimation.
 - [HPR, Open3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/open3d.ipynb):
     hidden points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
