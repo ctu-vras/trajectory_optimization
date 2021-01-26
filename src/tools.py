@@ -16,7 +16,13 @@ from pytorch3d.renderer import (
     PerspectiveCameras
 )
 import rospy
+import tf2_ros
+import tf
+from pointcloud_utils import xyz_array_to_pointcloud2
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import PointCloud2, CameraInfo
+from geometry_msgs.msg import TransformStamped, PoseStamped
+from nav_msgs.msg import Path
 
 
 # Torch HPR
@@ -60,20 +66,14 @@ def hidden_pts_removal(pts: torch.Tensor, device, R_param: int=2) -> torch.Tenso
     # Initialize the points visible from camera location
     flippedPoints = sphericalFlip(pts, device, R_param)
 
-    # try:
-    #     visibleHull = convexHull(flippedPoints, device)
-    #     visibleVertex = visibleHull.vertices[:-1]  # indexes of visible points
-    #
-    #     pts_visible = pts[visibleVertex, :]
-    # except:
-    #     print("HPR: Not enough pts to construct convex hull")
-    #     pts_visible = pts
-
     visibleHull = convexHull(flippedPoints, device)
     visibleVertex = visibleHull.vertices[:-1]  # indexes of visible points
+    # convert indexes to mask
+    visibleMask = torch.zeros(pts.size()[0], device=device)
+    visibleMask[visibleVertex] = 1
 
     pts_visible = pts[visibleVertex, :]
-    return pts_visible
+    return pts_visible, visibleMask
 
 
 def hidden_pts_removal_o3d(pts):
@@ -173,6 +173,15 @@ def get_cam_frustum_pts(points, img_height, img_width, intrins, min_dist=1.0, ma
     return points, dist_mask, fov_mask
 
 
+def denormalize(x):
+    """Scale image to range 0..1 for correct plot"""
+    x_max = np.percentile(x, 98)
+    x_min = np.percentile(x, 2)
+    x = (x - x_min) / (x_max - x_min)
+    x = x.clip(0, 1)
+    return x
+
+
 def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
     odom_msg_0 = Odometry()
     odom_msg_0.header.stamp = rospy.Time.now()
@@ -188,10 +197,80 @@ def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
     pub.publish(odom_msg_0)
 
 
-def denormalize(x):
-    """Scale image to range 0..1 for correct plot"""
-    x_max = np.percentile(x, 98)
-    x_min = np.percentile(x, 2)
-    x = (x - x_min) / (x_max - x_min)
-    x = x.clip(0, 1)
-    return x
+def publish_pointcloud(points, topic_name, stamp, frame_id):
+    # create PointCloud2 msg
+    pc_msg = xyz_array_to_pointcloud2(points, stamp=stamp, frame_id=frame_id)
+    pub = rospy.Publisher(topic_name, PointCloud2, queue_size=1)
+    pub.publish(pc_msg)
+
+
+def publish_tf_pose(pose, orient, child_frame_id, frame_id="world"):
+    br = tf2_ros.TransformBroadcaster()
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()
+    t.header.frame_id = frame_id
+    t.child_frame_id = child_frame_id
+    t.transform.translation.x = pose[0]
+    t.transform.translation.y = pose[1]
+    t.transform.translation.z = pose[2]
+    t.transform.rotation.x = orient[0]
+    t.transform.rotation.y = orient[1]
+    t.transform.rotation.z = orient[2]
+    t.transform.rotation.w = orient[3]
+    br.sendTransform(t)
+
+
+def publish_camera_info(image_width=1232, image_height=1616,
+                        K=[758.03967, 0.0, 621.46572, 0.0, 761.62359, 756.86402, 0.0, 0.0, 1.0],
+                        D=[-0.20571, 0.04103, -0.00101, 0.00098, 0.0],
+                        R=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                        P=[638.81494, 0.0, 625.98561, 0.0, 0.0, 585.79797, 748.57858, 0.0, 0.0, 0.0, 1.0, 0.0],
+                        topic_name="/camera_info",
+                        frame_id="camera_frame",
+                        distortion_model="plumb_bob"):
+    camera_info_msg = CameraInfo()
+    camera_info_msg.header.frame_id = frame_id
+    camera_info_msg.header.stamp = rospy.Time.now()
+    camera_info_msg.width = image_width
+    camera_info_msg.height = image_height
+    camera_info_msg.K = K  # calib_data["camera_matrix"]["data"]
+    camera_info_msg.D = D  # calib_data["distortion_coefficients"]["data"]
+    camera_info_msg.R = R  # calib_data["rectification_matrix"]["data"]
+    camera_info_msg.P = P  # calib_data["projection_matrix"]["data"]
+    camera_info_msg.distortion_model = distortion_model
+    pub = rospy.Publisher(topic_name, CameraInfo, queue_size=1)
+    pub.publish(camera_info_msg)
+
+
+def to_pose_stamped(pose, orient, frame_id='world'):
+    msg = PoseStamped()
+    msg.header.seq = 0
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = frame_id
+    msg.pose.position.x = pose[0]
+    msg.pose.position.y = pose[1]
+    msg.pose.position.z = pose[2]
+    quaternion = tf.transformations.quaternion_from_euler(orient[0], orient[1], orient[2])
+    msg.pose.orientation.x = quaternion[0]
+    msg.pose.orientation.y = quaternion[1]
+    msg.pose.orientation.z = quaternion[2]
+    msg.pose.orientation.w = quaternion[3]
+    msg.header.seq += 1
+    msg.header.stamp = rospy.Time.now()
+    return msg
+
+
+def publish_pose(pose, orient, topic_name):
+    msg = to_pose_stamped(pose, orient)
+    pub = rospy.Publisher(topic_name, PoseStamped, queue_size=1)
+    pub.publish(msg)
+
+
+def publish_path(path_list, orient=[0,0,0,1], topic_name='/path'):
+    path = Path()
+    for pose in path_list:
+        msg = to_pose_stamped(pose, orient)
+        path.header = msg.header
+        path.poses.append(msg)
+    pub = rospy.Publisher(topic_name, Path, queue_size=1)
+    pub.publish(path)

@@ -31,11 +31,11 @@ class PointsProcessor:
     def __init__(self,
                  pc_topic='/final_cost_cloud',
                  cam_info_topics=['/viz/camera_0/camera_info',
-                                  '/viz/camera_1/camera_info',
-                                  '/viz/camera_2/camera_info',
-                                  '/viz/camera_3/camera_info',
-                                  '/viz/camera_4/camera_info',
-                                  '/viz/camera_5/camera_info'
+                                  # '/viz/camera_1/camera_info',
+                                  # '/viz/camera_2/camera_info',
+                                  # '/viz/camera_3/camera_info',
+                                  # '/viz/camera_4/camera_info',
+                                  # '/viz/camera_5/camera_info'
                                   ],
                  min_dist=1.0,
                  max_dist=15.0,
@@ -171,7 +171,7 @@ class PointsProcessor:
                                 rospy.Time.now(),
                                 cam_frame)
         # remove hidden points from current camera FOV
-        points = torch.as_tensor(hidden_pts_removal(points.T, device=self.device),
+        points = torch.as_tensor(hidden_pts_removal(points.T, device=self.device)[0],
                                   dtype=torch.float32,
                                   device=self.device)
         print(f'[INFO]: Number of observed points from {cam_frame} is: {points.shape[0]}')
