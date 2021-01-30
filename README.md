@@ -61,7 +61,19 @@ In this example, the point cloud visibility is estimated for each individual cam
 (in its field of view and the distance range) separately.
 The combined point cloud is then visualized in the robot `base_link` frame.
 
-### Examples
+### Camera Position Optimization
+
+<img src="./data/cam_pose_opt.gif">
+
+Ego-pose optimization based on the observed in camera frustum point cloud visibility estimation.
+In this example, the points color encodes a distance-based (to camera frame) reward.
+The white points are currently observed ones by camera.
+
+```bash
+roslaunch frontier_exploration cam_pose_opt.launch
+```
+
+## Examples
 
 The [./notebooks](https://github.com/RuslanAgishev/frontier_exploration/tree/master/notebooks)
 folder contains the following examples:

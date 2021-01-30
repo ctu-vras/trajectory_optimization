@@ -287,7 +287,7 @@ def pc_to_voxel(pc, resolution=0.15, x=(0, 90), y=(-50, 50), z=(-4.5, 5.5)):
     voxel[pc[:, 0], pc[:, 1], pc[:, 2]] = 1
     return voxel
 
-def xyz_array_to_pointcloud2(points_sum, stamp=None, frame_id=None):
+def xyz_array_to_pointcloud2(points, stamp=None, frame_id=None):
     '''
     Create a sensor_msgs.PointCloud2 from an array of points.
     '''
@@ -297,7 +297,7 @@ def xyz_array_to_pointcloud2(points_sum, stamp=None, frame_id=None):
     if frame_id:
         msg.header.frame_id = frame_id
     msg.height = 1
-    msg.width = points_sum.shape[0]
+    msg.width = points.shape[0]
     msg.fields = [
         PointField('x', 0, PointField.FLOAT32, 1),
         PointField('y', 4, PointField.FLOAT32, 1),
@@ -306,8 +306,33 @@ def xyz_array_to_pointcloud2(points_sum, stamp=None, frame_id=None):
     ]
     msg.is_bigendian = False
     msg.point_step = 12
-    msg.row_step = points_sum.shape[0]
-    msg.is_dense = int(np.isfinite(points_sum).all())
-    msg.data = np.asarray(points_sum, np.float32).tostring()
-    # msg.data = points_sum.astype(np.float32).tobytes()
+    msg.row_step = points.shape[0]
+    msg.is_dense = int(np.isfinite(points).all())
+    msg.data = np.asarray(points, np.float32).tostring()
+    # msg.data = points.astype(np.float32).tobytes()
+    return msg
+
+def xyzi_array_to_pointcloud2(points, stamp=None, frame_id=None):
+    '''
+    Create a sensor_msgs.PointCloud2 from an array of points.
+    '''
+    msg = PointCloud2()
+    if stamp:
+        msg.header.stamp = stamp
+    if frame_id:
+        msg.header.frame_id = frame_id
+    msg.height = 1
+    msg.width = points.shape[0]
+    msg.fields = [
+        PointField('x', 0, PointField.FLOAT32, 1),
+        PointField('y', 4, PointField.FLOAT32, 1),
+        PointField('z', 8, PointField.FLOAT32, 1),
+        PointField('i', 12, PointField.FLOAT32, 1)
+    ]
+    msg.is_bigendian = False
+    msg.point_step = 16
+    msg.row_step = points.shape[0]
+    msg.is_dense = int(np.isfinite(points).all())
+    msg.data = np.asarray(points, np.float32).tostring()
+    # msg.data = points.astype(np.float32).tobytes()
     return msg

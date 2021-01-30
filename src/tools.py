@@ -16,11 +16,14 @@ from pytorch3d.renderer import (
     PerspectiveCameras
 )
 import rospy
+from cv_bridge import CvBridge
 import tf2_ros
 import tf
 from pointcloud_utils import xyz_array_to_pointcloud2
+from pointcloud_utils import xyzi_array_to_pointcloud2
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2, CameraInfo
+from sensor_msgs.msg import Image, CompressedImage
 from geometry_msgs.msg import TransformStamped, PoseStamped
 from nav_msgs.msg import Path
 
@@ -182,6 +185,14 @@ def denormalize(x):
     return x
 
 
+def publish_image(img, topic='/image/compressed'):
+    img_uint8 = np.uint8(255 * denormalize(img))
+    bridge = CvBridge()
+    img_msg = bridge.cv2_to_imgmsg(img_uint8, "bgr8")
+    pub = rospy.Publisher(topic, Image, queue_size=1)
+    pub.publish(img_msg)
+
+
 def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
     odom_msg_0 = Odometry()
     odom_msg_0.header.stamp = rospy.Time.now()
@@ -199,7 +210,10 @@ def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
 
 def publish_pointcloud(points, topic_name, stamp, frame_id):
     # create PointCloud2 msg
-    pc_msg = xyz_array_to_pointcloud2(points, stamp=stamp, frame_id=frame_id)
+    if points.shape[1] == 3:
+        pc_msg = xyz_array_to_pointcloud2(points, stamp=stamp, frame_id=frame_id)
+    elif points.shape[1] == 4:
+        pc_msg = xyzi_array_to_pointcloud2(points, stamp=stamp, frame_id=frame_id)
     pub = rospy.Publisher(topic_name, PointCloud2, queue_size=1)
     pub.publish(pc_msg)
 
