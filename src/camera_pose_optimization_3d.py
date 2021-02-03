@@ -10,7 +10,7 @@ import torch.nn as nn
 import numpy as np
 import cv2
 from pytorch3d.renderer import look_at_view_transform, look_at_rotation
-from pytorch3d.transforms import matrix_to_quaternion
+from pytorch3d.transforms import matrix_to_quaternion, random_rotation
 from tools import render_pc_image
 from tools import hidden_pts_removal
 
@@ -44,21 +44,26 @@ class FrustumVisibility(torch.autograd.Function):
 class Model(nn.Module):
     def __init__(self,
                  points,
-                 x0=0.0, y0=0.0, z0=0.0,
+                 # x0=0.0, y0=0.0, z0=0.0,
+                 dist=-1.0, elev=0.0, azim=0.0,
                  min_dist=1.0, max_dist=10.0):
         super().__init__()
         self.points = points
         self.rewards = None
         self.device = points.device
 
-        # Create an optimizable parameter for the x, y, z position of the camera.
-        self.camera_position = torch.from_numpy(np.array([x0, y0, z0], dtype=np.float32)).to(self.device)
-        # Based on the new position of the
-        # camera we calculate the rotation and translation matrices
-        R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
-        T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
-        self.T = nn.Parameter(T)
+        R, T = look_at_view_transform(dist, elev, azim, device=self.device)
+
+        # # Create an optimizable parameter for the x, y, z position of the camera.
+        # self.camera_position = torch.from_numpy(np.array([x0, y0, z0], dtype=np.float32)).to(self.device)
+        # # Based on the new position of the
+        # # camera we calculate the rotation and translation matrices
+        # # Create optimizable parameters for pose of the camera.
+        # R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
+        # T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
+
         # TODO: include yaw rotation as an optimizable model parameter
+        self.T = nn.Parameter(T)
         self.R = nn.Parameter(R)
 
         self.K, self.width, self.height = self.load_intrinsics()
@@ -101,10 +106,10 @@ class Model(nn.Module):
         return verts
 
     @staticmethod
-    def gaussian(x, mu=2.0, sigma=4.0):
+    def gaussian(x, mu=3.0, sigma=100.0):
         # https://en.wikipedia.org/wiki/Normal_distribution
-        g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
-        return g
+        g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        return g / (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
 
     def distance_rewards(self, verts):
         # compute rewards based on distance of the surrounding points
@@ -151,8 +156,8 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     # Set paths
     # obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456676.1540315.npz")  # 2 separate parts
-    # obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
-    obj_filename = os.path.join(FE_PATH, "pts/", np.random.choice(os.listdir(os.path.join(FE_PATH, "pts/"))))
+    obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
+    # obj_filename = os.path.join(FE_PATH, "pts/", np.random.choice(os.listdir(os.path.join(FE_PATH, "pts/"))))
     pts_np = np.load(obj_filename)['pts'].transpose()
     points = torch.tensor(pts_np).to(device)
 
@@ -168,16 +173,14 @@ if __name__ == "__main__":
 
     # Initialize a model
     model = Model(points=points,
-                  x0=0.0, y0=0.0, z0=-1.0,
+                  # x0=1.0, y0=1.0, z0=-1.0,
+                  dist=-1.0, elev=-30.0, azim=20.0,
                   min_dist=1.0, max_dist=5.0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
 
-    # camera_path = Path()
-    camera_path = []
     # Run optimization loop
-    loop = tqdm(range(300))
-    for i in loop:
+    for i in tqdm(range(400)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -194,8 +197,9 @@ if __name__ == "__main__":
                 publish_image(image_vis, topic='/pc_image')
                 # cv2.imshow('Point cloud in camera FOV', image_vis)
                 # cv2.waitKey(3)
+
             # print(f'Loss: {loss.item()}')
-            print(f'Number of visible points: {points_visible.size()[0]}')
+            # print(f'Number of visible points: {points_visible.size()[0]}')
 
             # publish ROS msgs
             rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
@@ -203,7 +207,7 @@ if __name__ == "__main__":
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(points, '/pts', rospy.Time.now(), 'world')
-            quat = matrix_to_quaternion(R).squeeze()
+            quat = matrix_to_quaternion(model.R).squeeze()
             quat = (quat[1], quat[2], quat[3], quat[0])
             trans = model.T.squeeze()
             publish_odom(trans, quat, frame='world', topic='/odom')
