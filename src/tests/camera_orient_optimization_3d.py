@@ -26,15 +26,21 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 
 
-def rewards_from_pose(camera_dist_elev_azim, verts,
+def load_intrinsics():
+    width, height = 1232., 1616.
+    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
+                      [0., 761.62359, 756.86402, 0.],
+                      [0., 0., 1., 0.],
+                      [0., 0., 0., 1.]]).to(device)
+    K = K.unsqueeze(0)
+    return K, width, height
+
+
+def rewards_from_pose(dist, elev, azim, verts,
                       min_dist=1.0, max_dist=10.0,
-                      img_width=1232, img_height=1616,
-                      intrins=torch.tensor([[758.03967, 0., 621.46572, 0.],
-                                            [0., 761.62359, 756.86402, 0.],
-                                            [0., 0., 1., 0.],
-                                            [0., 0., 0., 1.]]),
                       device=torch.device('cuda')):
-    dist, elev, azim = camera_dist_elev_azim
+    K, img_width, img_height = load_intrinsics()
+    intrins = K.squeeze(0)
     R, T = look_at_view_transform(dist, elev, azim, device=device)
 
     # transform points to camera frame
@@ -60,82 +66,57 @@ def rewards_from_pose(camera_dist_elev_azim, verts,
 
 
 class FrustumVisibilityEst(torch.autograd.Function):
-    """
-    We can implement our own custom autograd Functions by subclassing
-    torch.autograd.Function and implementing the forward and backward passes
-    which operate on Tensors.
-    """
-
     @staticmethod
     def forward(ctx,
-                camera_dist_elev_azim, verts,
+                dist, elev, azim, verts,
                 delta=0.05,  # small position and angular change for gradient estimation
-                device=torch.device('cuda')):
-        """
-        In the forward pass we receive a Tensor containing the input and return
-        a Tensor containing the output. ctx is a context object that can be used
-        to stash information for backward computation. You can cache arbitrary
-        objects for use in the backward pass using the ctx.save_for_backward method.
-        """
-        rewards = rewards_from_pose(camera_dist_elev_azim, verts)
+                ):
+        rewards = rewards_from_pose(dist, elev, azim, verts)
 
         # calculate how the small rotation ddist=delta affects the amount of rewards, i.e. dr/ddist = ?
-        camera_dist_elev_azim_ddist = camera_dist_elev_azim + torch.tensor([delta, 0.0, 0.0]).to(device)
-        rewards_ddist = rewards_from_pose(camera_dist_elev_azim_ddist, verts) - rewards
+        rewards_ddist = rewards_from_pose(dist+delta, elev, azim, verts) - rewards
 
         # calculate how the small rotation delev=delta affects the amount of rewards, i.e. dr/delev = ?
-        camera_dist_elev_azim_delev = camera_dist_elev_azim + torch.tensor([0.0, delta, 0.0]).to(device)
-        rewards_delev = rewards_from_pose(camera_dist_elev_azim_delev, verts) - rewards
+        rewards_delev = rewards_from_pose(dist, elev+delta, azim, verts) - rewards
 
         # calculate how the small rotation dazim=delta affects the amount of rewards, i.e. dr/ddist = ?
-        camera_dist_elev_azim_dazim = camera_dist_elev_azim + torch.tensor([0.0, 0.0, delta]).to(device)
-        rewards_dazim = rewards_from_pose(camera_dist_elev_azim_dazim, verts) - rewards
+        rewards_dazim = rewards_from_pose(dist, elev, azim+delta, verts) - rewards
 
         ctx.save_for_backward(rewards_ddist, rewards_delev, rewards_dazim)
         return rewards
 
     @staticmethod
     def backward(ctx, grad_output):
-        """
-        In the backward pass we receive a Tensor containing the gradient of the loss
-        with respect to the output, and we need to compute the gradient of the loss
-        with respect to the input.
-        """
         rewards_ddist, rewards_delev, rewards_dazim, = ctx.saved_tensors
 
         ddist = grad_output.clone() * rewards_ddist
         delev = grad_output.clone() * rewards_delev
         dazim = grad_output.clone() * rewards_dazim
 
-        return torch.tensor([ddist, delev, dazim]).to(rewards_dazim.device), None
+        return ddist.to(rewards_dazim.device), delev.to(rewards_dazim.device), dazim.to(rewards_dazim.device), None
 
 
 class Model(nn.Module):
-    def __init__(self, points, dist, elev, azim, min_dist=1.0, max_dist=5.0):
+    def __init__(self,
+                 points,
+                 dist, elev, azim,
+                 min_dist=1.0, max_dist=5.0):
         super().__init__()
         self.points = points
         self.device = points.device
 
         # Create optimizable parameters for pose of the camera.
-        self.camera_dist_elev_azim = nn.Parameter(
-            torch.as_tensor([dist, elev, azim], dtype=torch.float32).to(points.device))
+        self.dist = nn.Parameter(torch.as_tensor(dist, dtype=torch.float32).to(self.device))
+        self.elev = nn.Parameter(torch.as_tensor(elev, dtype=torch.float32).to(self.device))
+        self.azim = nn.Parameter(torch.as_tensor(azim, dtype=torch.float32).to(self.device))
+
         self.R, self.T = look_at_view_transform(dist, elev, azim, device=self.device)
 
-        self.K, self.width, self.height = self.load_intrinsics()
+        self.K, self.width, self.height = load_intrinsics()
         self.eps = 1e-6
         self.pc_clip_limits = torch.tensor([min_dist, max_dist])
 
         self.frustum_visibility = FrustumVisibilityEst.apply
-
-    @staticmethod
-    def load_intrinsics():
-        width, height = 1232., 1616.
-        K = torch.tensor([[758.03967, 0., 621.46572, 0.],
-                          [0., 761.62359, 756.86402, 0.],
-                          [0., 0., 1., 0.],
-                          [0., 0., 0., 1.]]).to(device)
-        K = K.unsqueeze(0)
-        return K, width, height
 
     @staticmethod
     def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
@@ -160,11 +141,10 @@ class Model(nn.Module):
         return verts_cam
 
     def forward(self):
-        rewards = self.frustum_visibility(self.camera_dist_elev_azim, self.points)
+        rewards = self.frustum_visibility(self.dist, self.elev, self.azim, self.points)
         loss = 1. / (rewards + self.eps)
 
-        dist, elev, azim = self.camera_dist_elev_azim
-        self.R, self.T = look_at_view_transform(dist, elev, azim, device=self.device)
+        self.R, self.T = look_at_view_transform(self.dist, self.elev, self.azim, device=self.device)
         verts = self.to_camera_frame(self.points, self.R, self.T)
 
         # get masks of points that are inside of the camera FOV
@@ -186,33 +166,35 @@ if __name__ == "__main__":
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu")
-    # Set paths
+    # Set paths to point cloud data
     # obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456676.1540315.npz")  # 2 separate parts
-    obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
+    # obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
     # obj_filename = os.path.join(FE_PATH, "pts/", np.random.choice(os.listdir(os.path.join(FE_PATH, "pts/"))))
-    pts_np = np.load(obj_filename)['pts'].transpose()
-    points = torch.tensor(pts_np).to(device)
+    obj_filename = os.path.join(FE_PATH, "src/traj_data/points/",
+                                np.random.choice(os.listdir(os.path.join(FE_PATH, "src/traj_data/points/"))))
+    pts_np = np.load(obj_filename)['pts']
+    # make sure the point cloud is of (N x 3) shape:
+    if pts_np.shape[1] > pts_np.shape[0]:
+        pts_np = pts_np.transpose()
+    points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initialize camera parameters
-    width, height = 1232, 1616
-    K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
-                      [0.,        761.62359, 756.86402, 0.],
-                      [0.,        0.,        1.,        0.],
-                      [0.,        0.,        0.,        1.]]).to(device)
-    K = K.unsqueeze(0)
+    K, img_width, img_height = load_intrinsics()
     R = torch.eye(3).unsqueeze(0).to(device)
     T = torch.Tensor([[0., 0., 0.]]).to(device)
 
     # Initialize a model
     model = Model(points=points,
-                  # x0=1.0, y0=1.0, z0=-1.0,
-                  dist=-4.0, elev=-30.0, azim=20.0,
+                  dist=-0.6, elev=-30.0, azim=20.0,
                   min_dist=1.0, max_dist=5.0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.3)
+    optimizer = torch.optim.Adam([
+                {'params': list([model.dist]), 'lr': 0.05},  # if lr=0.0, then position is not updated
+                {'params': list([model.elev, model.azim]), 'lr': 1.2}
+    ])
 
     # Run optimization loop
-    for i in tqdm(range(1000)):
+    for i in tqdm(range(300)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -223,7 +205,7 @@ if __name__ == "__main__":
         # Visualization
         if i % 4 == 0:
             if points_visible.size()[0] > 0:
-                image = render_pc_image(points_visible, R, T, K, height, width, device)
+                image = render_pc_image(points_visible, model.R, model.T, K, img_height, img_width, device)
 
                 image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
                 publish_image(image_vis, topic='/pc_image')

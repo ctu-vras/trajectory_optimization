@@ -26,6 +26,16 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 
 
+def load_intrinsics():
+    width, height = 1232., 1616.
+    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
+                      [0., 761.62359, 756.86402, 0.],
+                      [0., 0., 1., 0.],
+                      [0., 0., 0., 1.]]).to(device)
+    K = K.unsqueeze(0)
+    return K, width, height
+
+
 class FrustumVisibility(torch.autograd.Function):
     @staticmethod
     def forward(ctx, rewards, fov_mask):
@@ -66,21 +76,11 @@ class Model(nn.Module):
         self.T = nn.Parameter(T)
         self.R = nn.Parameter(R)
 
-        self.K, self.width, self.height = self.load_intrinsics()
+        self.K, self.width, self.height = load_intrinsics()
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         
         self.frustum_visibility = FrustumVisibility.apply
-
-    @staticmethod
-    def load_intrinsics():
-        width, height = 1232., 1616.
-        K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
-                          [0.,        761.62359, 756.86402, 0.],
-                          [0.,        0.,        1.,        0.],
-                          [0.,        0.,        0.,        1.]]).to(device)
-        K = K.unsqueeze(0)
-        return K, width, height
     
     @staticmethod
     def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
@@ -158,16 +158,17 @@ if __name__ == "__main__":
     # obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456676.1540315.npz")  # 2 separate parts
     obj_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
     # obj_filename = os.path.join(FE_PATH, "pts/", np.random.choice(os.listdir(os.path.join(FE_PATH, "pts/"))))
-    pts_np = np.load(obj_filename)['pts'].transpose()
-    points = torch.tensor(pts_np).to(device)
+    # obj_filename = os.path.join(FE_PATH, "src/traj_data/points/",
+    #                             np.random.choice(os.listdir(os.path.join(FE_PATH, "src/traj_data/points/"))))
+
+    pts_np = np.load(obj_filename)['pts']
+    # make sure the point cloud is of (N x 3) shape:
+    if pts_np.shape[1] > pts_np.shape[0]:
+        pts_np = pts_np.transpose()
+    points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initialize camera parameters
-    width, height = 1232, 1616
-    K = torch.tensor([[758.03967, 0.,        621.46572, 0.],
-                      [0.,        761.62359, 756.86402, 0.],
-                      [0.,        0.,        1.,        0.],
-                      [0.,        0.,        0.,        1.]]).to(device)
-    K = K.unsqueeze(0)
+    K, width, height = load_intrinsics()
     R = torch.eye(3).unsqueeze(0).to(device)
     T = torch.Tensor([[0., 0., 0.]]).to(device)
 
@@ -180,7 +181,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
 
     # Run optimization loop
-    for i in tqdm(range(400)):
+    for i in tqdm(range(600)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()

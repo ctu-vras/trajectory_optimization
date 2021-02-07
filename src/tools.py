@@ -176,11 +176,11 @@ def get_cam_frustum_pts(points, img_height, img_width, intrins, min_dist=1.0, ma
     return points, dist_mask, fov_mask
 
 
-def denormalize(x):
+def denormalize(x, eps=1e-6):
     """Scale image to range 0..1 for correct plot"""
     x_max = np.percentile(x, 98)
     x_min = np.percentile(x, 2)
-    x = (x - x_min) / (x_max - x_min)
+    x = (x - x_min) / np.max([(x_max - x_min), eps])
     x = x.clip(0, 1)
     return x
 
