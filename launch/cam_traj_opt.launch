@@ -1,0 +1,9 @@
+<launch>
+    <arg name="rviz_config" default="cam_traj_opt"/>
+
+    <param name="use_sim_time" value="true"/>
+
+    <node name="camera_traj_optimization" pkg="frontier_exploration" type="camera_traj_optimization_3d.py" output="screen"/>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find frontier_exploration)/config/$(arg rviz_config).rviz"/>
+</launch>

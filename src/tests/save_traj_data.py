@@ -80,26 +80,33 @@ class PointsProcessor:
             pose = path_msg.poses[i]
             # transform poses to camera frame
             cam_pose, cam_quat = self.pose(self.cam_frame)
-            self.path['poses'].append(cam_quat.inverse.rotate(np.array([pose.pose.position.x,
-                                                                        pose.pose.position.y,
-                                                                        pose.pose.position.z]) - cam_pose))
+            # self.path['poses'].append(cam_quat.inverse.rotate(np.array([pose.pose.position.x,
+            #                                                             pose.pose.position.y,
+            #                                                             pose.pose.position.z]) - cam_pose))
+            self.path['poses'].append(np.array([pose.pose.position.x,
+                                                pose.pose.position.y,
+                                                pose.pose.position.z]))
             msg.poses[i].pose.position.x = self.path['poses'][-1][0]
             msg.poses[i].pose.position.y = self.path['poses'][-1][1]
             msg.poses[i].pose.position.z = self.path['poses'][-1][2]
             # transform orients to camera frame
+            # self.path['orients'].append(Quaternion(x=pose.pose.orientation.x,
+            #                                        y=pose.pose.orientation.y,
+            #                                        z=pose.pose.orientation.z,
+            #                                        w=pose.pose.orientation.w) * cam_quat.inverse)
             self.path['orients'].append(Quaternion(x=pose.pose.orientation.x,
                                                    y=pose.pose.orientation.y,
                                                    z=pose.pose.orientation.z,
-                                                   w=pose.pose.orientation.w) * cam_quat.inverse)
+                                                   w=pose.pose.orientation.w))
             msg.poses[i].pose.orientation.x = self.path['orients'][-1].x
             msg.poses[i].pose.orientation.y = self.path['orients'][-1].y
             msg.poses[i].pose.orientation.z = self.path['orients'][-1].z
             msg.poses[i].pose.orientation.w = self.path['orients'][-1].w
 
-        # transform point cloud to camera frame
         if self.points is not None:
-            # self.points = self.points_to_cam_frame(self.points)
-            points_np = self.points#.cpu().numpy().T
+            # transform point cloud to camera frame
+            # self.points = self.points_to_cam_frame(self.points).cpu().numpy().T
+            points_np = self.points
 
             self.publish_pointcloud(points_np,
                                     '/pc_cam',
