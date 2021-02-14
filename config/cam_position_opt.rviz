@@ -5,6 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Odometry1/Shape1
+        - /TF1/Frames1
       Splitter Ratio: 0.6088235378265381
     Tree Height: 251
   - Class: rviz/Selection
@@ -54,21 +56,21 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 5.385993003845215
-        Min Value: -1.8478341102600098
+        Max Value: 8.413476943969727
+        Min Value: 1.0019499063491821
         Value: true
       Axis: Z
       Channel Name: i
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: AxisColor
+      Color Transformer: Intensity
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0.0997355729341507
+      Max Intensity: 0.00398942269384861
       Min Color: 0; 0; 0
-      Min Intensity: 0.03667474165558815
+      Min Intensity: 0.003984509501606226
       Name: Points
       Position Transformer: XYZ
       Queue Size: 10
@@ -134,8 +136,8 @@ Visualization Manager:
       Position Tolerance: 0.10000000149011612
       Shape:
         Alpha: 1
-        Axes Length: 0.20000000298023224
-        Axes Radius: 0.019999999552965164
+        Axes Length: 0.10000000149011612
+        Axes Radius: 0.10000000149011612
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
@@ -167,29 +169,6 @@ Visualization Manager:
       Value: true
     - Class: rviz/Group
       Displays:
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz/Path
-          Color: 25; 255; 0
-          Enabled: true
-          Head Diameter: 0.30000001192092896
-          Head Length: 0.20000000298023224
-          Length: 0.30000001192092896
-          Line Style: Lines
-          Line Width: 0.029999999329447746
-          Name: Path
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: None
-          Radius: 0.029999999329447746
-          Shaft Diameter: 0.10000000149011612
-          Shaft Length: 0.10000000149011612
-          Topic: /camera/path
-          Unreliable: false
-          Value: true
         - Alpha: 1
           Axes Length: 0.10000000149011612
           Axes Radius: 0.10000000149011612
@@ -233,6 +212,29 @@ Visualization Manager:
           Transport Hint: raw
           Unreliable: false
           Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz/Path
+          Color: 25; 255; 0
+          Enabled: true
+          Head Diameter: 0.30000001192092896
+          Head Length: 0.20000000298023224
+          Length: 0.30000001192092896
+          Line Style: Lines
+          Line Width: 0.029999999329447746
+          Name: InitialPath
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.10000000149011612
+          Shaft Length: 0.10000000149011612
+          Topic: /path/initial
+          Unreliable: false
+          Value: true
       Enabled: true
       Name: Camera
   Enabled: true
@@ -263,25 +265,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 16.148672103881836
+      Distance: 22.908472061157227
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.4859459400177002
-        Y: 0.03403925895690918
-        Z: 6.26818018645281e-6
+        X: -5.107142448425293
+        Y: -1.5957585573196411
+        Z: 4.36083155364031e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.11479847878217697
+      Pitch: 0.3897981345653534
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.1435489654541016
+      Yaw: 2.3185291290283203
     Saved: ~
 Window Geometry:
   Displays:

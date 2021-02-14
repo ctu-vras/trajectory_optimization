@@ -1,0 +1,9 @@
+<launch>
+    <arg name="rviz_config" default="cam_position_opt"/>
+
+    <param name="use_sim_time" value="true"/>
+
+    <node name="camera_position_optimization_3d" pkg="frontier_exploration" type="camera_position_optimization_3d.py" output="screen"/>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find frontier_exploration)/config/$(arg rviz_config).rviz"/>
+</launch>

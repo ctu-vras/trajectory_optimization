@@ -115,12 +115,12 @@ def hidden_pts_removal_o3d(pts):
 
 def render_pc_image(
                     verts: torch.Tensor,
-                    R: torch.Tensor,
-                    T: torch.Tensor,
                     K: torch.Tensor,
                     height: float,
                     width: float,
-                    device,
+                    R=None,
+                    T=None,
+                    device=torch.device('cuda'),
                     gamma=1.0e-1,  # Renderer blending parameter gamma, in [1., 1e-5].
                     znear=1.0,
                     zfar=10.0,
@@ -132,6 +132,11 @@ def render_pc_image(
     rgb = rgb / torch.max(rgb).to(device)
 
     point_cloud = Pointclouds(points=[verts], features=[rgb])
+
+    if R is None:
+        R = torch.eye(3).unsqueeze(0).to(device)
+    if T is None:
+        T = torch.tensor([[0., 0., 0.]]).to(device)
 
     cameras = PerspectiveCameras(
         R=R,

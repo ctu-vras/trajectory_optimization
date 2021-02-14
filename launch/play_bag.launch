@@ -1,6 +1,6 @@
 <launch>
     <arg name="bag" default="$(find frontier_exploration)/data/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
-    <arg name="bag_rate" default="10.0"/>
+    <arg name="bag_rate" default="40.0"/>
     <arg name="rviz_config" default="josef"/>
 
     <param name="use_sim_time" value="true"/>

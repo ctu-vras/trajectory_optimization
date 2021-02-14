@@ -10,7 +10,7 @@ import torch.nn as nn
 import numpy as np
 import cv2
 from pytorch3d.renderer import look_at_view_transform, look_at_rotation
-from pytorch3d.transforms import matrix_to_quaternion, random_rotation
+from pytorch3d.transforms import matrix_to_quaternion, random_rotation, euler_angles_to_matrix
 from tools import render_pc_image
 from tools import hidden_pts_removal
 
@@ -36,12 +36,21 @@ def load_intrinsics():
     return K, width, height
 
 
-def rewards_from_pose(dist, elev, azim, verts,
+def rewards_from_pose(x, y, z,
+                      roll, pitch, yaw,
+                      verts,
                       min_dist=1.0, max_dist=10.0,
-                      device=torch.device('cuda')):
+                      device=torch.device('cuda'),
+                      hpr=False,  # whether to use hidden points removal algorithm
+                      ):
     K, img_width, img_height = load_intrinsics()
     intrins = K.squeeze(0)
-    R, T = look_at_view_transform(dist, elev, azim, device=device)
+    R = euler_angles_to_matrix(torch.tensor([roll, pitch, yaw]), "XYZ").unsqueeze(0).to(device)
+    T = torch.tensor([x, y, z], device=device).unsqueeze(0)
+
+    # HPR: remove occluded points (currently works only on CPU)
+    if hpr:
+        verts, occl_mask = hidden_pts_removal(verts.detach(), device=device)
 
     # transform points to camera frame
     R_inv = torch.transpose(torch.squeeze(R, 0), 0, 1)
@@ -57,9 +66,6 @@ def rewards_from_pose(dist, elev, azim, verts,
                (pts_homo[0] > 1) & (pts_homo[0] < img_width - 1) & \
                (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
 
-    # HPR: remove occluded points
-    # verts, occl_mask = hidden_pts_removal(verts.detach(), device=self.device)
-
     mask = torch.logical_and(dist_mask, fov_mask).to(device)
     reward = torch.sum(mask, dtype=torch.float)
     return reward
@@ -68,49 +74,90 @@ def rewards_from_pose(dist, elev, azim, verts,
 class FrustumVisibilityEst(torch.autograd.Function):
     @staticmethod
     def forward(ctx,
-                dist, elev, azim, verts,
+                x, y, z,
+                roll, pitch, yaw,
+                verts,
                 delta=0.05,  # small position and angular change for gradient estimation
                 ):
-        rewards = rewards_from_pose(dist, elev, azim, verts)
+        rewards = rewards_from_pose(x, y, z,
+                                    roll, pitch, yaw,
+                                    verts)
 
         # calculate how the small rotation ddist=delta affects the amount of rewards, i.e. dr/ddist = ?
-        rewards_ddist = rewards_from_pose(dist+delta, elev, azim, verts) - rewards
+        rewards_dx = rewards_from_pose(x + delta, y, z,
+                                       roll, pitch, yaw,
+                                       verts) - rewards
 
         # calculate how the small rotation delev=delta affects the amount of rewards, i.e. dr/delev = ?
-        rewards_delev = rewards_from_pose(dist, elev+delta, azim, verts) - rewards
+        rewards_dy = rewards_from_pose(x, y + delta, z,
+                                       roll, pitch, yaw,
+                                       verts) - rewards
 
         # calculate how the small rotation dazim=delta affects the amount of rewards, i.e. dr/ddist = ?
-        rewards_dazim = rewards_from_pose(dist, elev, azim+delta, verts) - rewards
+        rewards_dz = rewards_from_pose(x, y, z + delta,
+                                       roll, pitch, yaw,
+                                       verts) - rewards
 
-        ctx.save_for_backward(rewards_ddist, rewards_delev, rewards_dazim)
+        # calculate how the small rotation delev=delta affects the amount of rewards, i.e. dr/delev = ?
+        rewards_droll = rewards_from_pose(x, y, z,
+                                       roll+delta, pitch, yaw,
+                                       verts) - rewards
+
+        # calculate how the small rotation dazim=delta affects the amount of rewards, i.e. dr/ddist = ?
+        rewards_dpitch = rewards_from_pose(x, y, z,
+                                       roll, pitch+delta, yaw,
+                                       verts) - rewards
+
+        # calculate how the small rotation dazim=delta affects the amount of rewards, i.e. dr/ddist = ?
+        rewards_dyaw = rewards_from_pose(x, y, z,
+                                           roll, pitch, yaw+delta,
+                                           verts) - rewards
+
+        ctx.save_for_backward(rewards_dx, rewards_dy, rewards_dz,
+                              rewards_droll, rewards_dpitch, rewards_dyaw)
         return rewards
 
     @staticmethod
     def backward(ctx, grad_output):
-        rewards_ddist, rewards_delev, rewards_dazim, = ctx.saved_tensors
+        rewards_dx, rewards_dy, rewards_dz,\
+            rewards_droll, rewards_dpitch, rewards_dyaw = ctx.saved_tensors
 
-        ddist = grad_output.clone() * rewards_ddist
-        delev = grad_output.clone() * rewards_delev
-        dazim = grad_output.clone() * rewards_dazim
+        device = rewards_dx.device
 
-        return ddist.to(rewards_dazim.device), delev.to(rewards_dazim.device), dazim.to(rewards_dazim.device), None
+        dx = (grad_output.clone() * rewards_dx).to(device)
+        dy = (grad_output.clone() * rewards_dy).to(device)
+        dz = (grad_output.clone() * rewards_dz).to(device)
+
+        droll = (grad_output.clone() * rewards_droll).to(device)
+        dpitch = (grad_output.clone() * rewards_dpitch).to(device)
+        dyaw = (grad_output.clone() * rewards_dyaw).to(device)
+
+        return dx, dy, dz, droll, dpitch, dyaw, None
 
 
 class Model(nn.Module):
     def __init__(self,
                  points,
-                 dist, elev, azim,
+                 x, y, z,
+                 roll, pitch, yaw,
                  min_dist=1.0, max_dist=5.0):
         super().__init__()
         self.points = points
         self.device = points.device
+        self.rewards = None
 
         # Create optimizable parameters for pose of the camera.
-        self.dist = nn.Parameter(torch.as_tensor(dist, dtype=torch.float32).to(self.device))
-        self.elev = nn.Parameter(torch.as_tensor(elev, dtype=torch.float32).to(self.device))
-        self.azim = nn.Parameter(torch.as_tensor(azim, dtype=torch.float32).to(self.device))
+        self.x = nn.Parameter(torch.as_tensor(x, dtype=torch.float32).to(self.device))
+        self.y = nn.Parameter(torch.as_tensor(y, dtype=torch.float32).to(self.device))
+        self.z = nn.Parameter(torch.as_tensor(z, dtype=torch.float32).to(self.device))
+        self.roll = nn.Parameter(torch.as_tensor(roll, dtype=torch.float32).to(self.device))
+        self.pitch = nn.Parameter(torch.as_tensor(pitch, dtype=torch.float32).to(self.device))
+        self.yaw = nn.Parameter(torch.as_tensor(yaw, dtype=torch.float32).to(self.device))
 
-        self.R, self.T = look_at_view_transform(dist, elev, azim, device=self.device)
+        self.R = euler_angles_to_matrix(torch.tensor([self.roll,
+                                                      self.pitch,
+                                                      self.yaw]), "XYZ").unsqueeze(0).to(self.device)
+        self.T = torch.tensor([self.x, self.y, self.z], device=self.device).unsqueeze(0)
 
         self.K, self.width, self.height = load_intrinsics()
         self.eps = 1e-6
@@ -141,10 +188,15 @@ class Model(nn.Module):
         return verts_cam
 
     def forward(self):
-        rewards = self.frustum_visibility(self.dist, self.elev, self.azim, self.points)
-        loss = 1. / (rewards + self.eps)
+        self.rewards = self.frustum_visibility(self.x, self.y, self.z,
+                                               self.roll, self.pitch, self.yaw,
+                                               self.points)
+        loss = 1. / (self.rewards + self.eps)
 
-        self.R, self.T = look_at_view_transform(self.dist, self.elev, self.azim, device=self.device)
+        self.R = euler_angles_to_matrix(torch.tensor([self.roll,
+                                                      self.pitch,
+                                                      self.yaw]), "XYZ").unsqueeze(0).to(self.device)
+        self.T = torch.tensor([self.x, self.y, self.z], device=self.device).unsqueeze(0)
         verts = self.to_camera_frame(self.points, self.R, self.T)
 
         # get masks of points that are inside of the camera FOV
@@ -180,21 +232,20 @@ if __name__ == "__main__":
 
     # Initialize camera parameters
     K, img_width, img_height = load_intrinsics()
-    R = torch.eye(3).unsqueeze(0).to(device)
-    T = torch.Tensor([[0., 0., 0.]]).to(device)
 
     # Initialize a model
     model = Model(points=points,
-                  dist=-0.6, elev=-30.0, azim=20.0,
+                  x=15.0, y=15.0, z=1.0,
+                  roll=np.pi/2, pitch=np.pi/2, yaw=0.0,
                   min_dist=1.0, max_dist=5.0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam([
-                {'params': list([model.dist]), 'lr': 0.05},  # if lr=0.0, then position is not updated
-                {'params': list([model.elev, model.azim]), 'lr': 1.2}
+                {'params': list([model.x, model.y]), 'lr': 0.05},
+                {'params': list([model.pitch]), 'lr': 0.02},
     ])
 
     # Run optimization loop
-    for i in tqdm(range(300)):
+    for i in tqdm(range(800)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -205,7 +256,7 @@ if __name__ == "__main__":
         # Visualization
         if i % 4 == 0:
             if points_visible.size()[0] > 0:
-                image = render_pc_image(points_visible, model.R, model.T, K, img_height, img_width, device)
+                image = render_pc_image(points_visible, K, img_height, img_width, device=device)
 
                 image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
                 publish_image(image_vis, topic='/pc_image')
@@ -216,7 +267,7 @@ if __name__ == "__main__":
             # print(f'Number of visible points: {points_visible.size()[0]}')
 
             # publish ROS msgs
-            # rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
+            # rewards_np = model.rewards.detach().cpu().numpy()
             # points = np.concatenate([pts_np, rewards_np], axis=1)  # add rewards for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')

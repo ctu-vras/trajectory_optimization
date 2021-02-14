@@ -180,7 +180,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
 
     # Run optimization loop
-    for i in tqdm(range(600)):
+    for i in tqdm(range(300)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         # Visualization
         if i % 2 == 0:
             if points_visible.size()[0] > 0:
-                image = render_pc_image(points_visible, R, T, K, height, width, device)
+                image = render_pc_image(points_visible, K, height, width, R, T, device)
 
                 image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
                 publish_image(image_vis, topic='/pc_image')

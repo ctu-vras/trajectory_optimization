@@ -153,8 +153,6 @@ if __name__ == "__main__":
 
     # Initialize camera parameters
     K, width, height = load_intrinsics()
-    R = torch.eye(3).unsqueeze(0).to(device)
-    T = torch.tensor([[0., 0., 0.]]).to(device)
 
     # Set paths
     # points_filename = os.path.join(FE_PATH, "src/traj_data/points/",
@@ -196,7 +194,7 @@ if __name__ == "__main__":
             # Visualization
             if i % 2 == 0:
                 if points_visible.size()[0] > 0:
-                    image = render_pc_image(points_visible, R, T, K, height, width, device)
+                    image = render_pc_image(points_visible, K, height, width, device=device)
 
                     image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
                     publish_image(image_vis, topic='/pc_image')
@@ -204,7 +202,7 @@ if __name__ == "__main__":
                     # cv2.waitKey(3)
 
                 # print(f'Loss: {loss.item()}')
-                # print(f'Number of visible points: {points_visible.size()[0]}')
+                print(f'Number of visible points: {points_visible.size()[0]}')
 
                 # publish ROS msgs
                 rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
