@@ -293,3 +293,13 @@ def publish_path(path_list, orient=[0,0,0,1], topic_name='/path', frame_id='worl
         path.poses.append(msg)
     pub = rospy.Publisher(topic_name, Path, queue_size=1)
     pub.publish(path)
+
+
+def load_intrinsics(device=torch.device('cuda')):
+    width, height = 1232., 1616.
+    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
+                      [0., 761.62359, 756.86402, 0.],
+                      [0., 0., 1., 0.],
+                      [0., 0., 0., 1.]]).to(device)
+    K = K.unsqueeze(0)
+    return K, width, height

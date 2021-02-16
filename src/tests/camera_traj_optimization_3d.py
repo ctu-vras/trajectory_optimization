@@ -6,13 +6,13 @@ FE_PATH = '/home/ruslan/Documents/CTU/catkin_ws/src/frontier_exploration/'
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 from tqdm import tqdm
-import torch.nn as nn
 import numpy as np
 import cv2
-from pytorch3d.renderer import look_at_view_transform, look_at_rotation
 from pytorch3d.transforms import matrix_to_quaternion, random_rotation, euler_angles_to_matrix
 from tools import render_pc_image
 from tools import hidden_pts_removal
+from tools import load_intrinsics
+from model import Model
 
 import rospy
 from tools import publish_odom
@@ -22,124 +22,6 @@ from tools import publish_camera_info
 from tools import publish_image
 from tools import publish_path
 from nav_msgs.msg import Path
-
-
-def load_intrinsics():
-    width, height = 1232., 1616.
-    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
-                      [0., 761.62359, 756.86402, 0.],
-                      [0., 0., 1., 0.],
-                      [0., 0., 0., 1.]]).to(device)
-    K = K.unsqueeze(0)
-    return K, width, height
-
-
-class FrustumVisibility(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, rewards, fov_mask):
-        rewards_fov = rewards * fov_mask
-        
-        ctx.save_for_backward(fov_mask)
-        return torch.sum(rewards_fov)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        fov_mask, = ctx.saved_tensors
-        d_rewards = grad_output.clone() * fov_mask
-        return d_rewards, None
-
-
-class Model(nn.Module):
-    def __init__(self,
-                 points,
-                 x0=0.0, y0=0.0, z0=0.0,
-                 min_dist=1.0, max_dist=10.0,
-                 dist_rewards_mean=3.0, dist_rewards_sigma=1.0):
-        super().__init__()
-        self.points = points
-        self.rewards = None
-        self.device = points.device
-
-        # Create an optimizable parameter for the x, y, z position of the camera.
-        self.camera_position = torch.from_numpy(np.array([x0, y0, z0], dtype=np.float32)).to(self.device)
-        R = torch.eye(3, device=self.device).unsqueeze(0)
-        # R = random_rotation(device=self.device).unsqueeze(0)
-        # R = euler_angles_to_matrix(torch.tensor([np.pi/2, -np.pi/2, 0.0]), "XYZ").unsqueeze(0).to(self.device)
-        T = self.camera_position.unsqueeze(0)
-
-        # TODO: include yaw rotation as an optimizable model parameter
-        self.T = nn.Parameter(T)
-        self.R = nn.Parameter(R)
-
-        self.K, self.width, self.height = load_intrinsics()
-        self.eps = 1e-6
-        self.pc_clip_limits = [min_dist, max_dist]  # [m]
-        self.dist_rewards = {'mean': dist_rewards_mean, 'sigma': dist_rewards_sigma}
-        
-        self.frustum_visibility = FrustumVisibility.apply
-    
-    @staticmethod
-    def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
-        # clip points between MIN_DIST and MAX_DIST meters distance from the camera
-        dist_mask = (points[2] > min_dist) & (points[2] < max_dist)
-        return dist_mask
-    
-    @staticmethod
-    def get_fov_mask(points, img_height, img_width, intrins):
-        # find points that are observed by the camera (in its FOV)
-        pts_homo = intrins[:3, :3] @ points
-        pts_homo[:2] /= pts_homo[2:3]
-        fov_mask = (pts_homo[2] > 0) & (pts_homo[0] > 1) & \
-                   (pts_homo[0] < img_width - 1) & (pts_homo[1] > 1) & \
-                   (pts_homo[1] < img_height - 1)
-        return fov_mask
-
-    def to_camera_frame(self, verts, R, T):
-        R_inv = torch.transpose(torch.squeeze(R, 0), 0, 1)
-        verts = torch.transpose(verts - torch.repeat_interleave(T, len(verts), dim=0).to(self.device), 0, 1)
-        verts = torch.matmul(R_inv, verts)
-        verts = torch.transpose(verts, 0, 1)
-        return verts
-
-    @staticmethod
-    def gaussian(x, mu=3.0, sigma=1.0):
-        # https://en.wikipedia.org/wiki/Normal_distribution
-        g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2)
-        return g / (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
-
-    def distance_rewards(self, verts):
-        # compute rewards based on distance of the surrounding points
-        dists = torch.linalg.norm(self.T - verts, dim=1)
-        rewards = self.gaussian(dists, self.dist_rewards['mean'], self.dist_rewards['sigma'])
-        return rewards
-
-    def forward(self):
-        # transform points to camera frame
-        verts = self.to_camera_frame(self.points, self.R, self.T)
-
-        # get masks of points that are inside of the camera FOV
-        dist_mask = self.get_dist_mask(verts.T, self.pc_clip_limits[0], self.pc_clip_limits[1])
-        fov_mask = self.get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
-
-        # HPR: remove occluded points
-        # occlusion_mask = hidden_pts_removal(verts.detach(), device=self.device)[1]
-
-        # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
-        mask = torch.logical_and(dist_mask, fov_mask)
-        # mask = torch.logical_and(occlusion_mask, dist_mask)
-
-        # remove points that are outside of camera FOV
-        verts = verts[mask, :]
-
-        self.rewards = self.distance_rewards(self.points)
-        loss = self.criterion(self.rewards, mask.to(self.device))
-        return verts, loss
-        
-    def criterion(self, rewards, mask):
-        # transform rewards to loss function
-        # loss = 1. / (torch.sum(rewards) + self.eps)
-        loss = 1. / (self.frustum_visibility(rewards, mask) + self.eps)
-        return loss
 
 
 if __name__ == "__main__":
@@ -176,14 +58,18 @@ if __name__ == "__main__":
 
         # Initialize a model
         model = Model(points=points,
-                      x0=x0, y0=y0, z0=z0,
+                      x=x0, y=y0, z=z0,
+                      roll=np.pi / 2, pitch=np.pi / 2, yaw=0.0,
                       min_dist=1.0, max_dist=5.0,
-                      dist_rewards_mean=3.0, dist_rewards_sigma=1.0).to(device)
+                      dist_rewards_mean=3.0, dist_rewards_sigma=2.0).to(device)
         # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam([
+            {'params': list([model.x, model.y]), 'lr': 0.05},
+            {'params': list([model.pitch]), 'lr': 0.03},
+        ])
 
         # Run optimization loop
-        for i in tqdm(range(100)):
+        for i in tqdm(range(50)):
             if rospy.is_shutdown():
                 break
             optimizer.zero_grad()
@@ -202,7 +88,7 @@ if __name__ == "__main__":
                     # cv2.waitKey(3)
 
                 # print(f'Loss: {loss.item()}')
-                print(f'Number of visible points: {points_visible.size()[0]}')
+                # print(f'Number of visible points: {points_visible.size()[0]}')
 
                 # publish ROS msgs
                 rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
