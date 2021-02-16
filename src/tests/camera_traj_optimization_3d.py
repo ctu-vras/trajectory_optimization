@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
         # Initialize a model
         model = Model(points=points,
-                      x=x0, y=y0, z=z0,
+                      x=x0, y=y0, z=z0+0.7,
                       roll=np.pi / 2, pitch=np.pi / 2, yaw=0.0,
                       min_dist=1.0, max_dist=5.0,
                       dist_rewards_mean=3.0, dist_rewards_sigma=2.0).to(device)

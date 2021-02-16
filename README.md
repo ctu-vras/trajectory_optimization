@@ -70,7 +70,18 @@ In this example, the points color encodes a distance-based (to camera frame) rew
 The white points are currently observed ones by camera.
 
 ```bash
-roslaunch frontier_exploration cam_pose_opt.launch
+roslaunch frontier_exploration cam_position_opt.launch
+```
+
+### Camera Trajectory Optimization
+
+<img src="./data/cam_traj_opt.gif">
+
+Camera pose (X, Y and Yaw) optimization is applied here for each separate sampled way-point
+of an initial trajectory.
+
+```bash
+roslaunch frontier_exploration cam_traj_opt.launch
 ```
 
 ## Examples
