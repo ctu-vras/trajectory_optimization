@@ -41,7 +41,7 @@ class Model(nn.Module):
         # R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
         # T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
         R = torch.eye(3, device=self.device).unsqueeze(0)
-        T = -self.camera_position.unsqueeze(0)
+        T = self.camera_position.unsqueeze(0)
 
         # TODO: include yaw rotation as an optimizable model parameter
         self.T = nn.Parameter(T)
@@ -117,9 +117,9 @@ class Model(nn.Module):
         # remove points that are outside of camera FOV
         verts = verts[mask, :]
 
-        self.observations = self.distance_visibility(self.points)
-        self.rewards = self.log_odds_conversion(self.observations)
-        loss = self.criterion(self.rewards, mask.to(self.device))
+        self.observations = self.distance_visibility(self.points)  # local observations reward (visibility)
+        self.rewards = self.log_odds_conversion(self.observations)  # total trajectory rewards
+        loss = self.criterion(self.observations, mask.to(self.device))
         return verts, loss
 
     def criterion(self, rewards, mask):

@@ -43,10 +43,9 @@ if __name__ == "__main__":
     R = torch.eye(3).unsqueeze(0).to(device)
     T = torch.tensor([[0., 0., 0.]]).to(device)
 
-    # Set paths
-    # points_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456676.1540315.npz")  # 2 separate parts
-    points_filename = os.path.join(FE_PATH, "pts/cam_pts_camera_0_1607456663.5413494.npz")  # V-shaped
-    # points_filename = os.path.join(FE_PATH, "pts/", np.random.choice(os.listdir(os.path.join(FE_PATH, "pts/"))))
+    # Set paths to data
+    index = 1612893730.3432848
+    points_filename = os.path.join(FE_PATH, f"src/traj_data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
     if pts_np.shape[1] > pts_np.shape[0]:
@@ -54,7 +53,7 @@ if __name__ == "__main__":
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initial position to optimize
-    x0, y0, z0 = torch.zeros(3, dtype=torch.float)
+    x0, y0, z0 = torch.tensor([13.0, 10.0, 0.0], dtype=torch.float)
 
     # Initialize a model
     model = Model(points=points,
@@ -86,8 +85,9 @@ if __name__ == "__main__":
             # print(f'Number of visible points: {points_visible.size()[0]}')
 
             # publish ROS msgs
-            rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
-            points = np.concatenate([pts_np, rewards_np], axis=1)  # add rewards for pts intensity visualization
+            intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
+            # intensity = model.observations.detach().unsqueeze(1).cpu().numpy()
+            points = np.concatenate([pts_np, intensity], axis=1)  # add rewards for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(points, '/pts', rospy.Time.now(), 'world')
