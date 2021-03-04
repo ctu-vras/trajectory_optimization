@@ -2,7 +2,8 @@
 
 import sys
 import os
-FE_PATH = '/home/ruslan/Documents/CTU/catkin_ws/src/frontier_exploration/'
+import rospkg
+FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 from tqdm import tqdm

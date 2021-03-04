@@ -29,7 +29,9 @@ class Model(nn.Module):
         super().__init__()
         self.points = points
         self.rewards = None
+        self.observations = None
         self.device = points.device
+        self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
         # Create an optimizable parameter for the x, y, z position of the camera.
         self.camera_position = torch.from_numpy(np.array([x0, y0, z0], dtype=np.float32)).to(self.device)
@@ -76,15 +78,25 @@ class Model(nn.Module):
         return verts
 
     @staticmethod
-    def gaussian(x, mu=3.0, sigma=100.0):
+    def gaussian(x, mu=3.0, sigma=100.0, normalize=False):
         # https://en.wikipedia.org/wiki/Normal_distribution
         g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2)
-        return g / (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
+        if normalize:
+            g /= (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
+        return g
 
-    def distance_rewards(self, verts):
+    def distance_visibility(self, verts):
         # compute rewards based on distance of the surrounding points
         dists = torch.linalg.norm(self.T - verts, dim=1)
         rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
+        return rewards
+
+    def log_odds_conversion(self, p):
+        # apply log odds conversion for global voxel map rewards update
+        p = torch.clip(p, 0.5, 1 - self.eps)
+        lo = torch.log(p / (1 - p))
+        self.lo_sum += lo
+        rewards = 1 / (1 + torch.exp(-self.lo_sum))
         return rewards
 
     def forward(self):
@@ -105,7 +117,8 @@ class Model(nn.Module):
         # remove points that are outside of camera FOV
         verts = verts[mask, :]
 
-        self.rewards = self.distance_rewards(self.points)
+        self.observations = self.distance_visibility(self.points)
+        self.rewards = self.log_odds_conversion(self.observations)
         loss = self.criterion(self.rewards, mask.to(self.device))
         return verts, loss
 

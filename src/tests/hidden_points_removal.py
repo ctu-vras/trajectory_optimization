@@ -2,7 +2,9 @@
 
 import os
 import sys
-sys.path.append('../')
+import rospkg
+FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
+sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 import numpy as np
 from scipy.spatial import ConvexHull

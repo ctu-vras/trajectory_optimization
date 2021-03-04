@@ -2,7 +2,8 @@
 
 import sys
 import os
-FE_PATH = '/home/ruslan/Documents/CTU/catkin_ws/src/frontier_exploration/'
+import rospkg
+FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 from tqdm import tqdm
@@ -86,6 +87,7 @@ if __name__ == "__main__":
             # print(f'Number of visible points: {points_visible.size()[0]}')
 
             # publish ROS msgs
+            # rewards_np = model.observations.unsqueeze(1).detach().cpu().numpy()
             rewards_np = model.rewards.unsqueeze(1).detach().cpu().numpy()
             pts_rewards = np.concatenate([pts_np, rewards_np], axis=1)  # add rewards for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()

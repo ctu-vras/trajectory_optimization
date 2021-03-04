@@ -1,6 +1,7 @@
 import sys
 import os
-FE_PATH = '/home/ruslan/Documents/CTU/catkin_ws/src/frontier_exploration/'
+import rospkg
+FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 import torch.nn as nn
@@ -120,6 +121,8 @@ class Model(nn.Module):
         self.points = points
         self.device = points.device
         self.rewards = None
+        self.observations = None
+        self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
         # Create optimizable parameters for pose of the camera.
         self.x = nn.Parameter(torch.as_tensor(x, dtype=torch.float32).to(self.device))
@@ -164,15 +167,25 @@ class Model(nn.Module):
         return verts_cam
 
     @staticmethod
-    def gaussian(x, mu=3.0, sigma=5.0):
+    def gaussian(x, mu=3.0, sigma=5.0, normalize=False):
         # https://en.wikipedia.org/wiki/Normal_distribution
         g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2)
-        return g / (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
+        if normalize:
+            g /= (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
+        return g
 
-    def distance_rewards(self, verts):
-        # compute rewards based on distance of the surrounding points
+    def distance_visibility(self, verts):
+        # compute visibility based on distance of the surrounding points
         dists = torch.linalg.norm(verts, dim=1)
-        rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
+        observations = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
+        return observations
+
+    def log_odds_conversion(self, p):
+        # apply log odds conversion for global voxel map rewards update
+        p = torch.clip(p, 0.5, 1 - self.eps)
+        lo = torch.log(p / (1 - p))
+        self.lo_sum += lo
+        rewards = 1 / (1 + torch.exp(-self.lo_sum))
         return rewards
 
     def forward(self):
@@ -188,7 +201,9 @@ class Model(nn.Module):
         verts = self.to_camera_frame(self.points, self.R, self.T)
 
         # calculate gaussian distance based rewards
-        self.rewards = self.distance_rewards(verts)
+        observations = self.distance_visibility(verts)
+        self.observations = observations
+        self.rewards = self.log_odds_conversion(observations)
 
         # get masks of points that are inside of the camera FOV
         dist_mask = self.get_dist_mask(verts.T, self.pc_clip_limits[0], self.pc_clip_limits[1])
