@@ -44,15 +44,15 @@ class FOVvisibility(torch.autograd.Function):
         """
         rewards = rewards_from_pose(camera_xy_yaw, polygon, points)
         
-        # calculate how the small movement dx=delta affects the amount of rewards, i.e. dr/dx = ?
+        # calculate how the small movement dx=delta affects the amount of observations, i.e. dr/dx = ?
         camera_xy_yaw_dx = camera_xy_yaw + torch.tensor([delta, 0.0, 0.0]).to(device)
         rewards_dx = rewards_from_pose(camera_xy_yaw_dx, polygon, points) - rewards
         
-        # calculate how the small movement dy=delta affects the amount of rewards, i.e. dr/dy = ?
+        # calculate how the small movement dy=delta affects the amount of observations, i.e. dr/dy = ?
         camera_xy_yaw_dy = camera_xy_yaw + torch.tensor([0.0, delta, 0.0]).to(device)
         rewards_dy = rewards_from_pose(camera_xy_yaw_dy, polygon, points) - rewards
         
-        # calculate how the small rotation dyaw=delta affects the amount of rewards, i.e. dr/dyaw = ?
+        # calculate how the small rotation dyaw=delta affects the amount of observations, i.e. dr/dyaw = ?
         camera_xy_yaw_dyaw = camera_xy_yaw + torch.tensor([0.0, 0.0, delta]).to(device)
         rewards_dyaw = rewards_from_pose(camera_xy_yaw_dyaw, polygon, points) - rewards
         

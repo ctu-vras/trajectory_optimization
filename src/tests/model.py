@@ -10,13 +10,14 @@ from pytorch3d.transforms import euler_angles_to_matrix
 from tools import load_intrinsics, hidden_pts_removal
 
 
-def rewards_from_pose(x, y, z,
-                      roll, pitch, yaw,
-                      verts,
-                      min_dist=1.0, max_dist=10.0,
-                      device=torch.device('cuda'),
-                      hpr=False,  # whether to use hidden points removal algorithm
-                      ):
+def observations_from_pose(x, y, z,
+                           roll, pitch, yaw,
+                           verts,
+                           min_dist=1.0, max_dist=5.0,
+                           mu=3.0, sigma=2.0,
+                           device=torch.device('cuda'),
+                           hpr=False,  # whether to use hidden points removal algorithm
+                           ):
     K, img_width, img_height = load_intrinsics()
     intrins = K.squeeze(0)
     R = euler_angles_to_matrix(torch.tensor([roll, pitch, yaw]), "XYZ").unsqueeze(0).to(device)
@@ -42,8 +43,12 @@ def rewards_from_pose(x, y, z,
                (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
 
     mask = torch.logical_and(dist_mask, fov_mask).to(device)
-    reward = torch.sum(mask, dtype=torch.float)
-    return reward
+
+    # compute visibility based on distance of the surrounding points
+    dists = torch.linalg.norm(verts, dim=0)
+    # https://en.wikipedia.org/wiki/Normal_distribution
+    observations = torch.exp(-0.5 * ((dists - mu) / sigma) ** 2) * mask
+    return torch.sum(observations, dtype=torch.float)
 
 
 class FrustumVisibilityEst(torch.autograd.Function):
@@ -52,62 +57,77 @@ class FrustumVisibilityEst(torch.autograd.Function):
                 x, y, z,
                 roll, pitch, yaw,
                 verts,
-                delta=0.05,  # small position and angular change for gradient estimation
+                cfg,
                 ):
-        pose_reward = rewards_from_pose(x, y, z,
-                                    roll, pitch, yaw,
-                                    verts)
+        observations = observations_from_pose(x, y, z,
+                                             roll, pitch, yaw,
+                                             verts,
+                                             min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']
+                                              )
 
-        # calculate how the small displacement dx=delta affects the amount of rewards, i.e. dr/dx = ?
-        reward_dx = rewards_from_pose(x + delta, y, z,
-                                       roll, pitch, yaw,
-                                       verts) - pose_reward
+        # calculate how the small displacement dx=delta affects the amount of observations, i.e. dr/dx = ?
+        observations_dx = observations_from_pose(x + cfg['delta'], y, z,
+                                           roll, pitch, yaw,
+                                           verts,
+                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        # calculate how the small displacement dy=delta affects the amount of rewards, i.e. dr/dy = ?
-        reward_dy = rewards_from_pose(x, y + delta, z,
-                                       roll, pitch, yaw,
-                                       verts) - pose_reward
+        # calculate how the small displacement dy=delta affects the amount of observations, i.e. dr/dy = ?
+        observations_dy = observations_from_pose(x, y + cfg['delta'], z,
+                                           roll, pitch, yaw,
+                                           verts,
+                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        # calculate how the small displacement dz=delta affects the amount of rewards, i.e. dr/dz = ?
-        reward_dz = rewards_from_pose(x, y, z + delta,
-                                       roll, pitch, yaw,
-                                       verts) - pose_reward
+        # calculate how the small displacement dz=delta affects the amount of observations, i.e. dr/dz = ?
+        observations_dz = observations_from_pose(x, y, z + cfg['delta'],
+                                           roll, pitch, yaw,
+                                           verts,
+                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        # calculate how the small rotation droll=delta affects the amount of rewards, i.e. dr/droll = ?
-        reward_droll = rewards_from_pose(x, y, z,
-                                          roll + delta, pitch, yaw,
-                                          verts) - pose_reward
+        # calculate how the small rotation droll=delta affects the amount of observations, i.e. dr/droll = ?
+        observations_droll = observations_from_pose(x, y, z,
+                                              roll + cfg['delta'], pitch, yaw,
+                                              verts,
+                                              min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                              mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        # calculate how the small rotation dpitch=delta affects the amount of rewards, i.e. dr/dpitch = ?
-        reward_dpitch = rewards_from_pose(x, y, z,
-                                           roll, pitch + delta, yaw,
-                                           verts) - pose_reward
+        # calculate how the small rotation dpitch=delta affects the amount of observations, i.e. dr/dpitch = ?
+        observations_dpitch = observations_from_pose(x, y, z,
+                                               roll, pitch + cfg['delta'], yaw,
+                                               verts,
+                                               min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                               mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        # calculate how the small rotation dyaw=delta affects the amount of rewards, i.e. dr/dyaw = ?
-        reward_dyaw = rewards_from_pose(x, y, z,
-                                         roll, pitch, yaw + delta,
-                                         verts) - pose_reward
+        # calculate how the small rotation dyaw=delta affects the amount of observations, i.e. dr/dyaw = ?
+        observations_dyaw = observations_from_pose(x, y, z,
+                                             roll, pitch, yaw + cfg['delta'],
+                                             verts,
+                                             min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
-        ctx.save_for_backward(reward_dx, reward_dy, reward_dz,
-                              reward_droll, reward_dpitch, reward_dyaw)
-        return pose_reward
+        ctx.save_for_backward(observations_dx, observations_dy, observations_dz,
+                              observations_droll, observations_dpitch, observations_dyaw)
+        return observations
 
     @staticmethod
     def backward(ctx, grad_output):
-        reward_dx, reward_dy, reward_dz,\
-            reward_droll, reward_dpitch, reward_dyaw = ctx.saved_tensors
+        observations_dx, observations_dy, observations_dz,\
+            observations_droll, observations_dpitch, observations_dyaw = ctx.saved_tensors
 
-        device = reward_dx.device
+        device = observations_dx.device
 
-        dx = (grad_output.clone() * reward_dx).to(device)
-        dy = (grad_output.clone() * reward_dy).to(device)
-        dz = (grad_output.clone() * reward_dz).to(device)
+        dx = (grad_output.clone() * observations_dx).to(device)
+        dy = (grad_output.clone() * observations_dy).to(device)
+        dz = (grad_output.clone() * observations_dz).to(device)
 
-        droll = (grad_output.clone() * reward_droll).to(device)
-        dpitch = (grad_output.clone() * reward_dpitch).to(device)
-        dyaw = (grad_output.clone() * reward_dyaw).to(device)
+        droll = (grad_output.clone() * observations_droll).to(device)
+        dpitch = (grad_output.clone() * observations_dpitch).to(device)
+        dyaw = (grad_output.clone() * observations_dyaw).to(device)
 
-        return dx, dy, dz, droll, dpitch, dyaw, None
+        return dx, dy, dz, droll, dpitch, dyaw, None, None
 
 
 class Model(nn.Module):
@@ -115,14 +135,15 @@ class Model(nn.Module):
                  points,
                  x, y, z,
                  roll, pitch, yaw,
-                 min_dist=1.0, max_dist=5.0,
-                 dist_rewards_mean=3.0, dist_rewards_sigma=2.0):
+                 cfg,
+                 ):
         super().__init__()
         self.points = points
         self.device = points.device
-        self.rewards = None
+        self.reward = None
         self.observations = None
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
+        self.cfg = cfg
 
         # Create optimizable parameters for pose of the camera.
         self.x = nn.Parameter(torch.as_tensor(x, dtype=torch.float32).to(self.device))
@@ -138,9 +159,6 @@ class Model(nn.Module):
         self.T = torch.tensor([self.x, self.y, self.z], device=self.device).unsqueeze(0)
 
         self.K, self.width, self.height = load_intrinsics()
-        self.eps = 1e-6
-        self.pc_clip_limits = torch.tensor([min_dist, max_dist])
-        self.dist_rewards = {'mean': dist_rewards_mean, 'sigma': dist_rewards_sigma}
 
         self.frustum_visibility = FrustumVisibilityEst.apply
 
@@ -177,12 +195,12 @@ class Model(nn.Module):
     def distance_visibility(self, verts):
         # compute visibility based on distance of the surrounding points
         dists = torch.linalg.norm(verts, dim=1)
-        observations = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
+        observations = self.gaussian(dists, mu=self.cfg['dist_rewards_mean'], sigma=self.cfg['dist_rewards_sigma'])
         return observations
 
     def log_odds_conversion(self, p):
-        # apply log odds conversion for global voxel map rewards update
-        p = torch.clip(p, 0.5, 1 - self.eps)
+        # apply log odds conversion for global voxel map observations update
+        p = torch.clip(p, 0.5, 1 - self.cfg['eps'])
         lo = torch.log(p / (1 - p))
         self.lo_sum += lo
         rewards = 1 / (1 + torch.exp(-self.lo_sum))
@@ -191,8 +209,9 @@ class Model(nn.Module):
     def forward(self):
         pose_reward = self.frustum_visibility(self.x, self.y, self.z,
                                               self.roll, self.pitch, self.yaw,
-                                              self.points)
-        loss = 1. / (pose_reward + self.eps)
+                                              self.points,
+                                              self.cfg)
+        loss = 1. / (pose_reward + self.cfg['eps'])
 
         self.R = euler_angles_to_matrix(torch.tensor([self.roll,
                                                       self.pitch,
@@ -200,16 +219,16 @@ class Model(nn.Module):
         self.T = torch.tensor([self.x, self.y, self.z], device=self.device).unsqueeze(0)
         verts = self.to_camera_frame(self.points, self.R, self.T)
 
-        # calculate gaussian distance based rewards
-        observations = self.distance_visibility(verts)
-        self.observations = observations
-        self.rewards = self.log_odds_conversion(observations)
-
         # get masks of points that are inside of the camera FOV
-        dist_mask = self.get_dist_mask(verts.T, self.pc_clip_limits[0], self.pc_clip_limits[1])
+        dist_mask = self.get_dist_mask(verts.T, self.cfg['min_dist'], self.cfg['max_dist'])
         fov_mask = self.get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
 
         mask = torch.logical_and(dist_mask, fov_mask)
+
+        # calculate gaussian distance based observations
+        observations = self.distance_visibility(verts)
+        self.observations = observations * mask
+        self.reward = self.log_odds_conversion(self.observations)
 
         # remove points that are outside of camera FOV
         verts = verts[mask, :]

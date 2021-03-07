@@ -7,11 +7,11 @@ from tools import load_intrinsics, hidden_pts_removal
 
 class FrustumVisibility(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, rewards, fov_mask):
-        rewards_fov = rewards * fov_mask
+    def forward(ctx, observations, fov_mask):
+        observations_fov = observations * fov_mask
 
         ctx.save_for_backward(fov_mask)
-        return torch.sum(rewards_fov)
+        return torch.sum(observations_fov)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -86,13 +86,13 @@ class Model(nn.Module):
         return g
 
     def distance_visibility(self, verts):
-        # compute rewards based on distance of the surrounding points
+        # compute observations based on distance of the surrounding points
         dists = torch.linalg.norm(self.T - verts, dim=1)
         rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
         return rewards
 
     def log_odds_conversion(self, p):
-        # apply log odds conversion for global voxel map rewards update
+        # apply log odds conversion for global voxel map observations update
         p = torch.clip(p, 0.5, 1 - self.eps)
         lo = torch.log(p / (1 - p))
         self.lo_sum += lo
@@ -117,13 +117,13 @@ class Model(nn.Module):
         # remove points that are outside of camera FOV
         verts = verts[mask, :]
 
-        self.observations = self.distance_visibility(self.points)  # local observations reward (visibility)
-        self.rewards = self.log_odds_conversion(self.observations)  # total trajectory rewards
+        self.observations = self.distance_visibility(self.points) * mask  # local observations reward (visibility)
+        self.rewards = self.log_odds_conversion(self.observations)  # total trajectory observations
         loss = self.criterion(self.observations, mask.to(self.device))
         return verts, loss
 
-    def criterion(self, rewards, mask):
-        # transform rewards to loss function
-        # loss = 1. / (torch.sum(rewards) + self.eps)
-        loss = 1. / (self.frustum_visibility(rewards, mask) + self.eps)
+    def criterion(self, observations, mask):
+        # transform observations to loss function
+        loss = 1. / (torch.sum(observations) + self.eps)
+        # loss = 1. / (self.frustum_visibility(observations, mask) + self.eps)
         return loss

@@ -92,8 +92,8 @@ if __name__ == "__main__":
                 # print(f'Number of visible points: {points_visible.size()[0]}')
 
                 # publish ROS msgs
-                rewards_np = model.rewards.detach().unsqueeze(1).cpu().numpy()
-                pts_np4 = np.concatenate([pts_np, rewards_np], axis=1)  # add rewards for pts intensity visualization
+                rewards_np = model.reward.detach().unsqueeze(1).cpu().numpy()
+                pts_np4 = np.concatenate([pts_np, rewards_np], axis=1)  # add observations for pts intensity visualization
                 points_visible_np = points_visible.detach().cpu().numpy()
                 publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
                 publish_pointcloud(pts_np4, '/pts', rospy.Time.now(), 'world')

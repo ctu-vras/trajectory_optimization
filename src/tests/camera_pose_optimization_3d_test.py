@@ -53,15 +53,19 @@ if __name__ == "__main__":
     K, img_width, img_height = load_intrinsics()
 
     # Initialize a model
+    cfg = {'min_dist': 1.0, 'max_dist': 5.0,  # distance range to clip point in camera frustum
+           'dist_rewards_mean': 3.0, 'dist_rewards_sigma': 2.0,  # gaussian params for distance-based visibility function
+           'eps': 1e-6,  # for numerical stability
+           'delta': 0.05,  # pose [meters and rads] step for numerical gradient calculation
+           }
     model = Model(points=points,
                   x=15.0, y=15.0, z=1.0,
-                  roll=np.pi/2, pitch=np.pi/2, yaw=0.0,
-                  min_dist=1.0, max_dist=5.0,
-                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0).to(device)
+                  roll=np.pi/2, pitch=np.pi/4, yaw=0.0,
+                  cfg=cfg).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam([
-                {'params': list([model.x, model.y]), 'lr': 0.05},
-                {'params': list([model.pitch]), 'lr': 0.04},
+                {'params': list([model.x, model.y]), 'lr': 0.02},
+                {'params': list([model.pitch]), 'lr': 0.02},
     ])
 
     # Run optimization loop
@@ -88,8 +92,8 @@ if __name__ == "__main__":
 
             # publish ROS msgs
             # intensity = model.observations.unsqueeze(1).detach().cpu().numpy()
-            rewards_np = model.rewards.unsqueeze(1).detach().cpu().numpy()
-            pts_rewards = np.concatenate([pts_np, rewards_np], axis=1)  # add rewards for pts intensity visualization
+            rewards_np = model.reward.unsqueeze(1).detach().cpu().numpy()
+            pts_rewards = np.concatenate([pts_np, rewards_np], axis=1)  # add observations for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(pts_rewards, '/pts', rospy.Time.now(), 'world')

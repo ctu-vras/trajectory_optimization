@@ -63,7 +63,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
 
     # Run optimization loop
-    for i in tqdm(range(300)):
+    for i in tqdm(range(400)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -87,7 +87,7 @@ if __name__ == "__main__":
             # publish ROS msgs
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
             # intensity = model.observations.detach().unsqueeze(1).cpu().numpy()
-            points = np.concatenate([pts_np, intensity], axis=1)  # add rewards for pts intensity visualization
+            points = np.concatenate([pts_np, intensity], axis=1)  # add observations for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(points, '/pts', rospy.Time.now(), 'world')
