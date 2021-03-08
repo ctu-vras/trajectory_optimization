@@ -58,11 +58,16 @@ if __name__ == "__main__":
         x0, y0, z0 = path_point
 
         # Initialize a model
+        cfg = {'min_dist': 1.0, 'max_dist': 5.0,  # distance range to clip point in camera frustum
+               'dist_rewards_mean': 3.0, 'dist_rewards_sigma': 2.0,
+               # gaussian params for distance-based visibility function
+               'eps': 1e-6,  # for numerical stability
+               'delta': 0.05,  # pose [meters and rads] step for numerical gradient calculation
+               }
         model = Model(points=points,
-                      x=x0, y=y0, z=z0+0.7,
-                      roll=np.pi / 2, pitch=np.pi / 2, yaw=0.0,
-                      min_dist=1.0, max_dist=5.0,
-                      dist_rewards_mean=3.0, dist_rewards_sigma=2.0).to(device)
+                      x=15.0, y=15.0, z=1.0,
+                      roll=np.pi / 2, pitch=np.pi / 4, yaw=0.0,
+                      cfg=cfg).to(device)
         # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
         optimizer = torch.optim.Adam([
             {'params': list([model.x, model.y]), 'lr': 0.05},

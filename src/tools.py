@@ -300,6 +300,6 @@ def load_intrinsics(device=torch.device('cuda')):
     K = torch.tensor([[758.03967, 0., 621.46572, 0.],
                       [0., 761.62359, 756.86402, 0.],
                       [0., 0., 1., 0.],
-                      [0., 0., 0., 1.]]).to(device)
+                      [0., 0., 0., 1.]], dtype=torch.float32).to(device)
     K = K.unsqueeze(0)
     return K, width, height
