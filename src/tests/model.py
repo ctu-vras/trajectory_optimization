@@ -64,7 +64,7 @@ class NumericalFrustumVisibility(torch.autograd.Function):
         observations = observations_from_pose(x, y, z,
                                              roll, pitch, yaw,
                                              verts,
-                                             min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                             min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                              mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']
                                               )
 
@@ -72,42 +72,42 @@ class NumericalFrustumVisibility(torch.autograd.Function):
         observations_dx = observations_from_pose(x + cfg['delta'], y, z,
                                            roll, pitch, yaw,
                                            verts,
-                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                            mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         # calculate how the small displacement dy=delta affects the amount of observations, i.e. dr/dy = ?
         observations_dy = observations_from_pose(x, y + cfg['delta'], z,
                                            roll, pitch, yaw,
                                            verts,
-                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                            mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         # calculate how the small displacement dz=delta affects the amount of observations, i.e. dr/dz = ?
         observations_dz = observations_from_pose(x, y, z + cfg['delta'],
                                            roll, pitch, yaw,
                                            verts,
-                                           min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                           min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                            mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         # calculate how the small rotation droll=delta affects the amount of observations, i.e. dr/droll = ?
         observations_droll = observations_from_pose(x, y, z,
                                               roll + cfg['delta'], pitch, yaw,
                                               verts,
-                                              min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                              min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                               mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         # calculate how the small rotation dpitch=delta affects the amount of observations, i.e. dr/dpitch = ?
         observations_dpitch = observations_from_pose(x, y, z,
                                                roll, pitch + cfg['delta'], yaw,
                                                verts,
-                                               min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                               min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                                mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         # calculate how the small rotation dyaw=delta affects the amount of observations, i.e. dr/dyaw = ?
         observations_dyaw = observations_from_pose(x, y, z,
                                              roll, pitch, yaw + cfg['delta'],
                                              verts,
-                                             min_dist=cfg['min_dist'], max_dist=cfg['max_dist'],
+                                             min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
                                              mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
 
         ctx.save_for_backward(observations_dx, observations_dy, observations_dz,
@@ -222,7 +222,7 @@ class Model(nn.Module):
         verts = self.to_camera_frame(self.points, self.R, self.T)
 
         # get masks of points that are inside of the camera FOV
-        dist_mask = self.get_dist_mask(verts.T, self.cfg['min_dist'], self.cfg['max_dist'])
+        dist_mask = self.get_dist_mask(verts.T, self.cfg['frustum_min_dist'], self.cfg['frustum_max_dist'])
         fov_mask = self.get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
 
         mask = torch.logical_and(dist_mask, fov_mask)

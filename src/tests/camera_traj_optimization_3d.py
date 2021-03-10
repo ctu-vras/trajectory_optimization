@@ -58,7 +58,7 @@ if __name__ == "__main__":
         x0, y0, z0 = path_point
 
         # Initialize a model
-        cfg = {'min_dist': 1.0, 'max_dist': 5.0,  # distance range to clip point in camera frustum
+        cfg = {'frustum_min_dist': 1.0, 'frustum_max_dist': 5.0,  # distance range to clip point in camera frustum
                'dist_rewards_mean': 3.0, 'dist_rewards_sigma': 2.0,
                # gaussian params for distance-based visibility function
                'eps': 1e-6,  # for numerical stability

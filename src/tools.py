@@ -126,7 +126,7 @@ def render_pc_image(
                     zfar=10.0,
 ):
     """
-    verts.size() = N x 3, point cloud in camera frame
+    points.size() = N x 3, point cloud in camera frame
     """
     rgb = verts - torch.min(verts)
     rgb = rgb / torch.max(rgb).to(device)

@@ -50,7 +50,7 @@ class Model(nn.Module):
         self.K, self.width, self.height = load_intrinsics()
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
-        self.dist_rewards = {'mean': dist_rewards_mean, 'sigma': dist_rewards_sigma}
+        self.dist_rewards = {'mean': dist_rewards_mean, 'dist_rewards_sigma': dist_rewards_sigma}
 
         self.frustum_visibility = FrustumVisibility.apply
 
@@ -88,7 +88,7 @@ class Model(nn.Module):
     def distance_visibility(self, verts):
         # compute observations based on distance of the surrounding points
         dists = torch.linalg.norm(self.T - verts, dim=1)
-        rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['sigma'])
+        rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['dist_rewards_sigma'])
         return rewards
 
     def log_odds_conversion(self, p):
@@ -108,7 +108,7 @@ class Model(nn.Module):
         fov_mask = self.get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
 
         # HPR: remove occluded points
-        # occlusion_mask = hidden_pts_removal(verts.detach(), device=self.device)[1]
+        # occlusion_mask = hidden_pts_removal(points.detach(), device=self.device)[1]
 
         # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
         mask = torch.logical_and(dist_mask, fov_mask)

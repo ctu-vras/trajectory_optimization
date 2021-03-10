@@ -53,7 +53,7 @@ if __name__ == "__main__":
     K, img_width, img_height = load_intrinsics()
 
     # Initialize a model
-    cfg = {'min_dist': 1.0, 'max_dist': 5.0,  # distance range to clip point in camera frustum
+    cfg = {'frustum_min_dist': 1.0, 'frustum_max_dist': 5.0,  # distance range to clip point in camera frustum
            'dist_rewards_mean': 3.0, 'dist_rewards_sigma': 2.0,  # gaussian params for distance-based visibility function
            'eps': 1e-6,  # for numerical stability
            'delta': 0.05,  # pose [meters and rads] step for numerical gradient calculation

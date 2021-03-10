@@ -42,8 +42,8 @@ class PointsProcessor:
                  ):
         self.pc_frame = None
         self.points = None
-        self.pc_clip_limits = [rospy.get_param('~min_dist', min_dist),
-                               rospy.get_param('~max_dist', max_dist)]
+        self.pc_clip_limits = [rospy.get_param('~frustum_min_dist', min_dist),
+                               rospy.get_param('~frustum_max_dist', max_dist)]
         self.device = torch.device("cuda:0")
 
         self.pc_topic = rospy.get_param('~pointcloud_topic', pc_topic)
@@ -83,7 +83,7 @@ class PointsProcessor:
                         intrins: torch.Tensor,
                         fovH, fovW):
         """
-        verts.size() = N x 3
+        points.size() = N x 3
         """
         rgb = verts - torch.min(verts)
         rgb = rgb / torch.max(rgb).to(self.device)
