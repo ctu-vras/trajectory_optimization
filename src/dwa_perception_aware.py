@@ -34,13 +34,13 @@ class Config:
         self.max_accel = 0.2  # [m/ss]
         self.max_delta_yaw_rate = 40.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.02  # [m/s]
-        self.yaw_rate_resolution = 0.2 * math.pi / 180.0  # [rad/s]
+        self.yaw_rate_resolution = 2.0 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
         self.predict_time = 1.0  # [s]
         self.to_goal_cost_gain = 0.15
         self.speed_cost_gain = 1.0
         self.obstacle_cost_gain = 1.0
-        self.visibility_reward_gain = 1e-4
+        self.visibility_reward_gain = 1.0e-4
         self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
 
         # Also used to check if goal is reached in both types
@@ -146,9 +146,8 @@ class Planner:
                 to_goal_cost = self.cfg.to_goal_cost_gain * self.calc_to_goal_cost(trajectory, goal)
                 speed_cost = self.cfg.speed_cost_gain * (self.cfg.max_speed - trajectory[-1, 3])
                 visibility_reward = self.cfg.visibility_reward_gain * self.calc_visibility_reward(trajectory, points)
-                # print(to_goal_cost, speed_cost, visibility_reward)
 
-                final_reward = visibility_reward - to_goal_cost - speed_cost
+                final_reward = visibility_reward / (to_goal_cost + speed_cost + self.cfg.eps)
 
                 # search maximum reward trajectory
                 if max_reward <= final_reward:
@@ -231,17 +230,18 @@ class Planner:
         return torch.sum(local_traj_rewards, dtype=torch.float)
 
     def data_publisher(self, x):
-        if self.points_visible.size()[0] > 0:
-            image = render_pc_image(self.points_visible, self.K, self.img_height, self.img_width, device=self.device)
+        if self.points_visible is not None:
+            if self.points_visible.size()[0] > 0:
+                image = render_pc_image(self.points_visible, self.K, self.img_height, self.img_width, device=self.device)
 
-            image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
-            publish_image(image_vis, topic='/pc_image')
-            # cv2.imshow('Point cloud in camera FOV', image_vis)
-            # cv2.waitKey(3)
+                image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
+                publish_image(image_vis, topic='/pc_image')
+                # cv2.imshow('Point cloud in camera FOV', image_vis)
+                # cv2.waitKey(3)
         rewards_np = self.rewards.unsqueeze(1).detach().cpu().numpy()
-        pts_rewards = np.concatenate([self.pts_np, rewards_np],
-                                     axis=1)  # add observations for pts intensity visualization
-        publish_pointcloud(pts_rewards, '/pts', rospy.Time.now(), 'world')
+        pts = np.concatenate([self.pts_np, rewards_np],
+                              axis=1)  # add observations for pts intensity visualization
+        publish_pointcloud(pts, '/pts', rospy.Time.now(), 'world')
         trans = torch.tensor([x[0], x[1], 0.0])  # z = 0
         quat = tf.transformations.quaternion_from_euler(0, 0, x[2])
         publish_odom(trans, quat, frame='world', topic='/odom')
@@ -283,7 +283,7 @@ if __name__ == "__main__":
     planner = Planner(config, pts_np)
 
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
-    x_initial = np.array([13.0, 10.0, math.pi / 8.0, 0.0, 0.0])
+    x_initial = np.array([7.0, 7.0, 0.0, 0.0, 0.0])
     # goal position [x(m), y(m)]
     goal = np.array([15.0, 15.0])
 

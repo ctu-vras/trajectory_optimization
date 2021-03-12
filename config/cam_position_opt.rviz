@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Odometry1/Shape1
         - /TF1/Frames1
+        - /Camera1
       Splitter Ratio: 0.6088235378265381
     Tree Height: 247
   - Class: rviz/Selection
@@ -188,13 +189,13 @@ Visualization Manager:
           Unreliable: false
           Value: true
         - Class: jsk_rviz_plugin/CameraInfo
-          Enabled: true
+          Enabled: false
           Image Topic: ""
           Name: CameraInfo
           Queue Size: 10
           Topic: /camera/camera_info
           Unreliable: false
-          Value: true
+          Value: false
           alpha: 0.20000000298023224
           color: 85; 255; 255
           edge color: 125; 125; 125
@@ -286,9 +287,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2802017629146576
+      Pitch: 0.6002016067504883
       Target Frame: <Fixed Frame>
-      Yaw: 3.53853178024292
+      Yaw: 3.8635382652282715
     Saved: ~
 Window Geometry:
   Displays:

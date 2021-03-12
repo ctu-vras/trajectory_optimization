@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
         - /Odometry1/Shape1
         - /TF1/Frames1
         - /Camera1
@@ -138,7 +137,7 @@ Visualization Manager:
       Queue Size: 10
       Shape:
         Alpha: 1
-        Axes Length: 0.10000000149011612
+        Axes Length: 0.5
         Axes Radius: 0.10000000149011612
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
@@ -189,20 +188,20 @@ Visualization Manager:
           Unreliable: false
           Value: true
         - Class: jsk_rviz_plugin/CameraInfo
-          Enabled: false
+          Enabled: true
           Image Topic: ""
           Name: CameraInfo
           Queue Size: 10
           Topic: /camera/camera_info
           Unreliable: false
-          Value: false
-          alpha: 0.20000000298023224
+          Value: true
+          alpha: 1
           color: 85; 255; 255
-          edge color: 125; 125; 125
+          edge color: 85; 255; 255
           far clip: 5
           not show side polygons: false
           show edges: true
-          show polygons: true
+          show polygons: false
           transport hints: raw
           use image: false
         - Class: rviz/Image
@@ -271,7 +270,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 20.929794311523438
+      Distance: 25.73646354675293
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -279,8 +278,8 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 6.582806587219238
-        Y: 4.258549690246582
+        X: 6.724053382873535
+        Y: 7.082031726837158
         Z: -2.3148886612034403e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806

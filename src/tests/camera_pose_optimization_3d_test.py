@@ -59,13 +59,13 @@ if __name__ == "__main__":
            'delta': 0.05,  # pose [meters and rads] step for numerical gradient calculation
            }
     model = Model(points=points,
-                  x=15.0, y=15.0, z=1.0,
+                  x=13.0, y=10.0, z=1.0,
                   roll=np.pi/2, pitch=np.pi/4, yaw=0.0,
                   cfg=cfg).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam([
-                {'params': list([model.x, model.y]), 'lr': 0.02},
-                {'params': list([model.pitch]), 'lr': 0.02},
+                {'params': list([model.x, model.y]), 'lr': 0.04},
+                {'params': list([model.pitch]), 'lr': 0.04},
     ])
 
     # Run optimization loop

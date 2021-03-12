@@ -86,6 +86,7 @@ if __name__ == "__main__":
 
             # publish ROS msgs
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
+            print(np.sum(intensity))
             # intensity = model.observations.detach().unsqueeze(1).cpu().numpy()
             points = np.concatenate([pts_np, intensity], axis=1)  # add observations for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()

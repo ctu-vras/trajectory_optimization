@@ -73,6 +73,14 @@ The white points are currently observed ones by camera.
 roslaunch frontier_exploration cam_position_opt.launch
 ```
 
+### Camera Trajectory Evaluation
+
+<img src="./data/cam_traj_eval.gif">
+
+A camera trajectory could be evaluated by a number of observed voxels (points in the cloud).
+Single pose visibility estimation rewards are combined using log odds representation as it
+is done in [OctoMap](https://www.researchgate.net/publication/235008236_OctoMap_A_Probabilistic_Flexible_and_Compact_3D_Map_Representation_for_Robotic_Systems) paper.
+
 ### Camera Trajectory Optimization
 
 <img src="./data/cam_traj_opt.gif">
