@@ -39,7 +39,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
 
     # Initialize camera parameters
-    K, width, height = load_intrinsics()
+    K, width, height = load_intrinsics(device=device)
     R = torch.eye(3).unsqueeze(0).to(device)
     T = torch.tensor([[0., 0., 0.]]).to(device)
 

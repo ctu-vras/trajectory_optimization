@@ -65,7 +65,7 @@ class Planner:
         self.points = torch.tensor(pts_np, dtype=torch.float32).to(self.device)
         self.cfg = cfg
         # Initialize camera parameters
-        self.K, self.img_width, self.img_height = load_intrinsics()
+        self.K, self.img_width, self.img_height = load_intrinsics(device=self.device)
         self.rewards = None
         self.observations = None
         self.points_visible = None

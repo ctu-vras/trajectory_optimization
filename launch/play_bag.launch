@@ -1,3 +1,5 @@
+<?xml version="1.0"?>
+
 <launch>
     <arg name="bag" default="$(find frontier_exploration)/data/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
     <arg name="bag_rate" default="40.0"/>

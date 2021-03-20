@@ -44,7 +44,11 @@ class PointsProcessor:
         self.points = None
         self.pc_clip_limits = [rospy.get_param('~frustum_min_dist', min_dist),
                                rospy.get_param('~frustum_max_dist', max_dist)]
-        self.device = torch.device("cuda:0")
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda:0")
+            torch.cuda.set_device(self.device)
+        else:
+            self.device = torch.device("cpu")
 
         self.pc_topic = rospy.get_param('~pointcloud_topic', pc_topic)
         print("Subscribed to " + self.pc_topic)
@@ -180,17 +184,17 @@ class PointsProcessor:
                                 f'{output_pc_topic}_visible',
                                 rospy.Time.now(),
                                 cam_frame)
-        # print(f'[INFO]: Processing took {1000*(time.time()-t1):.1f} ms')
+        print(f'[INFO]: Processing took {1000*(time.time()-t1):.1f} ms')
 
-        # # render and image of observed point cloud
-        # image = self.render_pc_image(points, intrins, img_height, img_width)
-        #
-        # image_vis = cv2.resize(image.cpu().numpy(), (img_width // 2, img_height // 2))
-        # image_vis = cv2.flip(image_vis, -1)
-        # # np.savez(f'./pts/cam_pts_{cam_frame}_{time.time()}.npz', pts=points.cpu().numpy())
-        # # cv2.imwrite(f'./pts/renderred_img_{cam_frame}_{time.time()}.png', image_vis)
-        # cv2.imshow('Rendered pc image', image_vis)
-        # cv2.waitKey(3)
+        # render and image of observed point cloud
+        image = self.render_pc_image(points, intrins, img_height, img_width)
+        
+        image_vis = cv2.resize(image.cpu().numpy(), (img_width // 2, img_height // 2))
+        image_vis = cv2.flip(image_vis, -1)
+        # np.savez(f'./pts/cam_pts_{cam_frame}_{time.time()}.npz', pts=points.cpu().numpy())
+        # cv2.imwrite(f'./pts/renderred_img_{cam_frame}_{time.time()}.png', image_vis)
+        cv2.imshow('Rendered pc image', image_vis)
+        cv2.waitKey(3)
 
 
 if __name__ == '__main__':

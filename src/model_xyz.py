@@ -47,7 +47,7 @@ class Model(nn.Module):
         self.T = nn.Parameter(T)
         self.R = nn.Parameter(R)
 
-        self.K, self.width, self.height = load_intrinsics()
+        self.K, self.width, self.height = load_intrinsics(device=self.device)
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         self.dist_rewards = {'mean': dist_rewards_mean, 'dist_rewards_sigma': dist_rewards_sigma}

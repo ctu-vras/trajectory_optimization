@@ -10,9 +10,6 @@ from pytorch3d.transforms import euler_angles_to_matrix
 from tools import load_intrinsics, hidden_pts_removal
 
 
-K, img_width, img_height = load_intrinsics()
-
-
 def observations_from_pose(x, y, z,
                            roll, pitch, yaw,
                            verts,
@@ -21,6 +18,8 @@ def observations_from_pose(x, y, z,
                            device=torch.device('cuda'),
                            hpr=False,  # whether to use hidden points removal algorithm
                            ):
+    K, img_width, img_height = load_intrinsics(device=device)
+
     intrins = K.squeeze(0)
     R = euler_angles_to_matrix(torch.tensor([roll, pitch, yaw]), "XYZ").unsqueeze(0).to(device)
     T = torch.tensor([x, y, z], device=device).unsqueeze(0)
@@ -60,12 +59,14 @@ class NumericalFrustumVisibility(torch.autograd.Function):
                 roll, pitch, yaw,
                 verts,
                 cfg,
+                device=torch.device('cuda'),
                 ):
         observations = observations_from_pose(x, y, z,
                                              roll, pitch, yaw,
                                              verts,
                                              min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']
+                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                             device=device
                                               )
 
         # calculate how the small displacement dx=delta affects the amount of observations, i.e. dr/dx = ?
@@ -73,42 +74,48 @@ class NumericalFrustumVisibility(torch.autograd.Function):
                                            roll, pitch, yaw,
                                            verts,
                                            min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                           device=device) - observations
 
         # calculate how the small displacement dy=delta affects the amount of observations, i.e. dr/dy = ?
         observations_dy = observations_from_pose(x, y + cfg['delta'], z,
                                            roll, pitch, yaw,
                                            verts,
                                            min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                           device=device) - observations
 
         # calculate how the small displacement dz=delta affects the amount of observations, i.e. dr/dz = ?
         observations_dz = observations_from_pose(x, y, z + cfg['delta'],
                                            roll, pitch, yaw,
                                            verts,
                                            min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                           mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                           device=device) - observations
 
         # calculate how the small rotation droll=delta affects the amount of observations, i.e. dr/droll = ?
         observations_droll = observations_from_pose(x, y, z,
                                               roll + cfg['delta'], pitch, yaw,
                                               verts,
                                               min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                              mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                              mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                              device=device) - observations
 
         # calculate how the small rotation dpitch=delta affects the amount of observations, i.e. dr/dpitch = ?
         observations_dpitch = observations_from_pose(x, y, z,
                                                roll, pitch + cfg['delta'], yaw,
                                                verts,
                                                min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                               mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                               mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                               device=device) - observations
 
         # calculate how the small rotation dyaw=delta affects the amount of observations, i.e. dr/dyaw = ?
         observations_dyaw = observations_from_pose(x, y, z,
                                              roll, pitch, yaw + cfg['delta'],
                                              verts,
                                              min_dist=cfg['frustum_min_dist'], max_dist=cfg['frustum_max_dist'],
-                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma']) - observations
+                                             mu=cfg['dist_rewards_mean'], sigma=cfg['dist_rewards_sigma'],
+                                             device=device) - observations
 
         ctx.save_for_backward(observations_dx, observations_dy, observations_dz,
                               observations_droll, observations_dpitch, observations_dyaw)
@@ -129,7 +136,7 @@ class NumericalFrustumVisibility(torch.autograd.Function):
         dpitch = (grad_output.clone() * observations_dpitch).to(device)
         dyaw = (grad_output.clone() * observations_dyaw).to(device)
 
-        return dx, dy, dz, droll, dpitch, dyaw, None, None
+        return dx, dy, dz, droll, dpitch, dyaw, None, None, None
 
 
 class Model(nn.Module):
@@ -160,7 +167,7 @@ class Model(nn.Module):
                                                       self.yaw]), "XYZ").unsqueeze(0).to(self.device)
         self.T = torch.tensor([self.x, self.y, self.z], device=self.device).unsqueeze(0)
 
-        self.K, self.width, self.height = load_intrinsics()
+        self.K, self.width, self.height = load_intrinsics(device=self.device)
 
         self.frustum_visibility = NumericalFrustumVisibility.apply
 
@@ -212,7 +219,8 @@ class Model(nn.Module):
         pose_reward = self.frustum_visibility(self.x, self.y, self.z,
                                               self.roll, self.pitch, self.yaw,
                                               self.points,
-                                              self.cfg)
+                                              self.cfg,
+                                              self.device)
         loss = 1. / (pose_reward + self.cfg['eps'])
 
         self.R = euler_angles_to_matrix(torch.tensor([self.roll,

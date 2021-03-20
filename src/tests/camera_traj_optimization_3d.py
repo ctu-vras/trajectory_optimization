@@ -35,7 +35,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
 
     # Initialize camera parameters
-    K, width, height = load_intrinsics()
+    K, width, height = load_intrinsics(device=device)
 
     # Set paths
     # points_filename = os.path.join(FE_PATH, "src/traj_data/points/",

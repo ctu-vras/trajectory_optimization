@@ -50,7 +50,7 @@ if __name__ == "__main__":
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initialize camera parameters
-    K, img_width, img_height = load_intrinsics()
+    K, img_width, img_height = load_intrinsics(device=device)
 
     # Initialize a model
     cfg = {'frustum_min_dist': 1.0, 'frustum_max_dist': 5.0,  # distance range to clip point in camera frustum
