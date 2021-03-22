@@ -1,5 +1,5 @@
 <launch>
-    <arg name="rviz_config" default="cam_position_opt"/>
+    <arg name="rviz_config" default="cam_pose_opt"/>
     <arg name="rviz" default="true"/>
 
     <param name="use_sim_time" value="false"/>

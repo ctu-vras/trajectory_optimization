@@ -58,7 +58,7 @@ def convexHull(points, device):
     return hull
 
 
-def hidden_pts_removal(pts: torch.Tensor, device, R_param: int=2) -> torch.Tensor:
+def hidden_pts_removal(pts: torch.Tensor, device, R_param: int=2):
     """
     :param pts: input point cloud, Nx3
     :type pts: torch.Tensor

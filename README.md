@@ -36,7 +36,7 @@ source ~/catkin_ws/devel/setup.bash
 
 ### Point cloud Visibility Estimation
 
-<img src="./data/hpr.gif">
+<img src="./demos/hpr.gif">
 
 Ones the package is installed, run the launch file and specify the bag file location:
 ```bash
@@ -55,7 +55,7 @@ The resultant point cloud rendering on an image plane is done with
 
 ### Multiple cameras:
 
-<img src="./data/hpr_cams_01234.gif">
+<img src="./demos/hpr_cams_01234.gif">
 
 In this example, the point cloud visibility is estimated for each individual camera
 (in its field of view and the distance range) separately.
@@ -63,7 +63,7 @@ The combined point cloud is then visualized in the robot `base_link` frame.
 
 ### Camera Position Optimization
 
-<img src="./data/cam_pose_opt.gif">
+<img src="./demos/cam_pose_opt.gif">
 
 Ego-pose optimization based on the observed in camera frustum point cloud visibility estimation.
 In this example, the points color encodes a distance-based (to camera frame) reward.
@@ -75,7 +75,7 @@ roslaunch frontier_exploration cam_position_opt.launch
 
 ### Camera Trajectory Evaluation
 
-<img src="./data/cam_traj_eval.gif">
+<img src="./demos/cam_traj_eval.gif">
 
 A camera trajectory could be evaluated by a number of observed voxels (points in the cloud).
 Single pose visibility estimation rewards are combined using log odds representation as it
@@ -83,7 +83,7 @@ is done in [OctoMap](https://www.researchgate.net/publication/235008236_OctoMap_
 
 ### Camera Trajectory Optimization
 
-<img src="./data/cam_traj_opt.gif">
+<img src="./demos/cam_traj_opt.gif">
 
 Camera pose (X, Y and Yaw) optimization is applied here for each separate sampled way-point
 of an initial trajectory.

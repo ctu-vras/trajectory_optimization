@@ -49,8 +49,8 @@ K = K.unsqueeze(0)
 width, height = 1232, 1616
 
 # Load point cloud
-obj_filename = "../../../../../catkin_ws/src/frontier_exploration/pts/cam_pts_camera_0_1607456676.1540315.npz"
-# path = "../../../../../catkin_ws/src/frontier_exploration/pts/"
+obj_filename = os.path.join(FE_PATH, "data/fov_points/cam_pts_camera_0_1607456676.1540315.npz")
+# path = "../../../../../catkin_ws/src/frontier_exploration/data/fov_points/"
 # np.random.seed(0)
 # obj_filename = os.path.join(path, np.random.choice(os.listdir(path)))
 pts_np = np.load(obj_filename)['pts'].transpose()
@@ -85,15 +85,15 @@ for elevation in np.linspace(-60, 60, 50):
     verts_cam = get_cam_frustum_pts(verts_cam.T,
                                     height, width,
                                     K.squeeze(0),
-                                    min_dist=1.0, max_dist=10.0).T
+                                    min_dist=1.0, max_dist=10.0)[0]
 
-    verts_cam_visible = hidden_pts_removal(verts_cam, device=device)
+    verts_cam_visible = hidden_pts_removal(verts_cam, device=device)[0]
     print(f'Number of visible points: {verts_cam_visible.size()[0]}/{verts.size()[0]}')
 
     R = torch.eye(3, dtype=torch.float32, device=device)[None, ...]
     T = torch.zeros((1, 3), dtype=torch.float32, device=device)
-    pc_image = render_pc_image(verts_cam, R, T, K, width=width, height=height, device=device)
-    pc_visible_image = render_pc_image(verts_cam_visible, R, T, K, width=width, height=height, device=device)
+    pc_image = render_pc_image(verts_cam, R=R, T=T, K=K, width=width, height=height, device=device)
+    pc_visible_image = render_pc_image(verts_cam_visible, R=R, T=T, K=K, width=width, height=height, device=device)
 
     image = cv2.resize(pc_image.cpu().numpy(), (width // 2, height // 2))
     image = cv2.flip(image, -1)

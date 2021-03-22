@@ -40,9 +40,9 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     # Set paths to point cloud data
     index = 1612893730.3432848
-    points_filename = os.path.join(FE_PATH, f"src/traj_data/points/point_cloud_{index}.npz")
-    # points_filename = os.path.join(FE_PATH, "src/traj_data/points/",
-    #                                np.random.choice(os.listdir(os.path.join(FE_PATH, "src/traj_data/points/"))))
+    points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
+    # points_filename = os.path.join(FE_PATH, "data/points/",
+    #                                np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/"))))
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
     if pts_np.shape[1] > pts_np.shape[0]:

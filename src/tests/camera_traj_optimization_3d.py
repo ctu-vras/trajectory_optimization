@@ -38,10 +38,10 @@ if __name__ == "__main__":
     K, width, height = load_intrinsics(device=device)
 
     # Set paths
-    # points_filename = os.path.join(FE_PATH, "src/traj_data/points/",
-    #                             np.random.choice(os.listdir(os.path.join(FE_PATH, "src/traj_data/points/"))))
+    # points_filename = os.path.join(FE_PATH, "data/points/",
+    #                             np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/"))))
     index = 1612893730.3432848
-    points_filename = os.path.join(FE_PATH, f"src/traj_data/points/point_cloud_{index}.npz")
+    points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
     if pts_np.shape[1] > pts_np.shape[0]:
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     # Initial position to optimize
     # x0, y0, z0 = torch.zeros(3, dtype=torch.float)
-    poses_filename = os.path.join(FE_PATH, f"src/traj_data/paths/path_poses_{index}.npz")
+    poses_filename = os.path.join(FE_PATH, f"data/paths/path_poses_{index}.npz")
     path_list = np.load(poses_filename)['poses'].tolist()
 
     for p in range(0, len(path_list), 4):  # sample waypoints from the path
