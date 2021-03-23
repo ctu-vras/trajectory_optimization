@@ -5,21 +5,6 @@ from pytorch3d.transforms import euler_angles_to_matrix
 from tools import load_intrinsics, hidden_pts_removal
 
 
-class FrustumVisibility(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, observations, fov_mask):
-        observations_fov = observations * fov_mask
-
-        ctx.save_for_backward(fov_mask)
-        return torch.sum(observations_fov)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        fov_mask, = ctx.saved_tensors
-        d_rewards = grad_output.clone() * fov_mask
-        return d_rewards, None
-
-
 class Model(nn.Module):
     def __init__(self,
                  points,
@@ -51,8 +36,6 @@ class Model(nn.Module):
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         self.dist_rewards = {'mean': dist_rewards_mean, 'dist_rewards_sigma': dist_rewards_sigma}
-
-        self.frustum_visibility = FrustumVisibility.apply
 
     @staticmethod
     def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
@@ -107,23 +90,17 @@ class Model(nn.Module):
         dist_mask = self.get_dist_mask(verts.T, self.pc_clip_limits[0], self.pc_clip_limits[1])
         fov_mask = self.get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
 
-        # HPR: remove occluded points
-        # occlusion_mask = hidden_pts_removal(points.detach(), device=self.device)[1]
-
-        # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
         mask = torch.logical_and(dist_mask, fov_mask)
-        # mask = torch.logical_and(occlusion_mask, dist_mask)
 
         # remove points that are outside of camera FOV
         verts = verts[mask, :]
 
         self.observations = self.distance_visibility(self.points) * mask  # local observations reward (visibility)
         self.rewards = self.log_odds_conversion(self.observations)  # total trajectory observations
-        loss = self.criterion(self.observations, mask.to(self.device))
+        loss = self.criterion(self.observations)
         return verts, loss
 
-    def criterion(self, observations, mask):
+    def criterion(self, observations):
         # transform observations to loss function
         loss = 1. / (torch.sum(observations) + self.eps)
-        # loss = 1. / (self.frustum_visibility(observations, mask) + self.eps)
         return loss
