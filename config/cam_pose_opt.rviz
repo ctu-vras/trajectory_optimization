@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Odometry1/Shape1
         - /TF1/Frames1
+        - /Camera1
       Splitter Ratio: 0.6088235378265381
     Tree Height: 247
   - Class: rviz/Selection
@@ -68,9 +69,7 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 1
       Min Color: 0; 0; 0
-      Min Intensity: 0.5
       Name: Points
       Position Transformer: XYZ
       Queue Size: 10
@@ -95,12 +94,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0.0997355729341507
       Min Color: 0; 0; 0
-      Min Intensity: 0.03412734717130661
       Name: PointsViisible
       Position Transformer: XYZ
       Queue Size: 10
@@ -112,7 +109,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:
@@ -188,13 +185,13 @@ Visualization Manager:
           Unreliable: false
           Value: true
         - Class: jsk_rviz_plugin/CameraInfo
-          Enabled: true
+          Enabled: false
           Image Topic: ""
           Name: CameraInfo
           Queue Size: 10
           Topic: /camera/camera_info
           Unreliable: false
-          Value: true
+          Value: false
           alpha: 0.20000000298023224
           color: 85; 255; 255
           edge color: 125; 125; 125
@@ -278,17 +275,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 15.677716255187988
-        Y: 22.225948333740234
-        Z: -3.2685629776096903e-06
+        X: 9.334161758422852
+        Y: 8.63469123840332
+        Z: -2.3148886612034403e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8747981786727905
+      Pitch: 0.5547983050346375
       Target Frame: <Fixed Frame>
-      Yaw: 2.2135396003723145
+      Yaw: 3.8335392475128174
     Saved: ~
 Window Geometry:
   Displays:
