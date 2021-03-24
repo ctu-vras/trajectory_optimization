@@ -11,7 +11,9 @@ from tqdm import tqdm
 import torch.nn as nn
 import numpy as np
 import cv2
+from copy import deepcopy
 
+# ROS libraries
 import rospy
 from tools import load_intrinsics
 from tools import publish_odom
@@ -39,18 +41,21 @@ class Model(nn.Module):
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
         # Create an optimizable parameter for the x, y, z position of the camera.
-        rot = torch.eye(3, device=self.device).unsqueeze(0)
+        self.rot0 = torch.eye(3, device=self.device).unsqueeze(0)
         for i in range(len(traj_wps) - 1):
-            rot = torch.cat([rot, torch.eye(3, device=self.device).unsqueeze(0)])  # (N, 3, 3)
-        traj = torch.from_numpy(np.array(traj_wps, dtype=np.float32)).to(self.device)  # (N, 3)
+            self.rot0 = torch.cat([self.rot0, torch.eye(3, device=self.device).unsqueeze(0)])  # (N, 3, 3)
+        self.traj0 = torch.from_numpy(np.array(traj_wps, dtype=np.float32)).to(self.device)  # (N, 3)
 
-        self.traj = nn.Parameter(traj)
-        self.rots = nn.Parameter(rot)
+        self.traj = nn.Parameter(deepcopy(self.traj0))
+        self.rots = nn.Parameter(self.rot0)
 
         self.K, self.width, self.height = load_intrinsics(device=self.device)
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         self.dist_rewards = {'mean': dist_rewards_mean, 'dist_rewards_sigma': dist_rewards_sigma}
+
+        self.loss_vis = None
+        self.loss_traj = {'l2': None, 'vel': None, 'acc': None, 'jerk': None}
 
     @staticmethod
     def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
@@ -119,17 +124,24 @@ class Model(nn.Module):
         loss = self.criterion(self.rewards)
         return loss
 
-    def criterion(self, rewards, use_wps_loss=False, wps_dist_scale=1e-7):
+    @staticmethod
+    def smoothness_est(traj):
+        vel = torch.linalg.norm(traj[1:] - traj[:-1], dim=1)
+        acc = vel[1:] - vel[:-1]
+        jerk = acc[1:] - acc[:-1]
+        return torch.mean(torch.abs(vel)), torch.mean(torch.abs(acc)), torch.mean(torch.abs(jerk))
+
+    def criterion(self, rewards, l2_lambda=0.004):  # , l2_lambda=0.0004):
         # transform observations to loss function: loss = 1 / sum(prob(observed))
-        loss = 1. / (torch.sum(rewards) + self.eps)
+        self.loss_vis = len(self.points) / (torch.sum(rewards) + self.eps)
         # add penalties for close waypoints
-        if use_wps_loss:
-            for i in range(self.traj.size()[0] - 1):
-                p1 = self.traj[i]
-                p2 = self.traj[i + 1]
-                loss_wp = torch.linalg.norm(p1 - p2) * wps_dist_scale
-                loss = loss + loss_wp
-        return loss
+        self.loss_traj['l2'] = 0.0
+        for i in [0, -1]:  # range(len(self.traj0)):
+            self.loss_traj['l2'] += torch.linalg.norm(self.traj[i] - self.traj0[i])
+        self.loss_traj['vel'], self.loss_traj['acc'], self.loss_traj['jerk'] = self.smoothness_est(self.traj)
+        for key in self.loss_traj: self.loss_traj[key] *= l2_lambda
+        return self.loss_vis + self.loss_traj['l2'] + self.loss_traj['vel'] + self.loss_traj['acc'] + self.loss_traj[
+            'jerk']
 
 
 if __name__ == "__main__":
