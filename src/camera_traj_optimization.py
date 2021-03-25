@@ -6,25 +6,16 @@ import rospkg
 FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
-from pytorch3d.transforms import matrix_to_quaternion
 from tqdm import tqdm
 import torch.nn as nn
 import numpy as np
-import cv2
 from copy import deepcopy
 
 # ROS libraries
 import rospy
 from tools import load_intrinsics
-from tools import publish_odom
 from tools import publish_pointcloud
-from tools import publish_tf_pose
-from tools import publish_camera_info
-from tools import publish_image
 from tools import publish_path
-from tools import to_pose_stamped
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
 
 
 class Model(nn.Module):
@@ -147,7 +138,7 @@ if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
     # Load the point cloud and initial trajectory to optimize
     if torch.cuda.is_available():
-        device = torch.device("cuda")
+        device = torch.device("cuda:0")
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu")
