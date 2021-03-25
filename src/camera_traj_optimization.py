@@ -131,7 +131,7 @@ class Model(nn.Module):
         jerk = acc[1:] - acc[:-1]
         return torch.mean(torch.abs(vel)), torch.mean(torch.abs(acc)), torch.mean(torch.abs(jerk))
 
-    def criterion(self, rewards, l2_lambda=0.004):  # , l2_lambda=0.0004):
+    def criterion(self, rewards, l2_lambda=0.004):
         # transform observations to loss function: loss = 1 / sum(prob(observed))
         self.loss_vis = len(self.points) / (torch.sum(rewards) + self.eps)
         # add penalties for close waypoints
@@ -140,8 +140,7 @@ class Model(nn.Module):
             self.loss_traj['l2'] += torch.linalg.norm(self.traj[i] - self.traj0[i])
         self.loss_traj['vel'], self.loss_traj['acc'], self.loss_traj['jerk'] = self.smoothness_est(self.traj)
         for key in self.loss_traj: self.loss_traj[key] *= l2_lambda
-        return self.loss_vis + self.loss_traj['l2'] + self.loss_traj['vel'] + self.loss_traj['acc'] + self.loss_traj[
-            'jerk']
+        return self.loss_vis + self.loss_traj['l2'] + self.loss_traj['vel'] + self.loss_traj['acc'] + self.loss_traj['jerk']
 
 
 if __name__ == "__main__":
@@ -169,7 +168,7 @@ if __name__ == "__main__":
     model = Model(points=points,
                   traj_wps=traj_0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
     # Run optimization loop
     loop = tqdm(range(100))
@@ -182,7 +181,11 @@ if __name__ == "__main__":
         optimizer.step()
 
         if i % 4 == 0:
-            print(f"Loss: {loss.item()}")
+            print(f"Visibility loss: {model.loss_vis}")
+            print(f"L2 loss: {model.loss_traj['l2']}")
+            print(f"Vel loss: {model.loss_traj['vel']}")
+            print(f"Acc loss: {model.loss_traj['acc']}")
+            print(f"Jerk loss: {model.loss_traj['jerk']}")
             print(f"Trajectory visibility score: {torch.sum(model.rewards)}")
 
             # publish ROS msgs
