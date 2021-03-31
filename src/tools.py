@@ -1,20 +1,26 @@
 import numpy as np
 from scipy.spatial import ConvexHull
-import open3d as o3d
 import torch
+try:
+    import open3d as o3d
+except:
+    print("No Open3D installed")
 # Data structures and functions for rendering
-from pytorch3d.structures import Pointclouds
-from pytorch3d.renderer import (
-    look_at_view_transform,
-    FoVOrthographicCameras,
-    PointsRasterizationSettings,
-    PointsRenderer,
-    PulsarPointsRenderer,
-    PointsRasterizer,
-    AlphaCompositor,
-    NormWeightedCompositor,
-    PerspectiveCameras
-)
+try:
+    from pytorch3d.structures import Pointclouds
+    from pytorch3d.renderer import (
+        look_at_view_transform,
+        FoVOrthographicCameras,
+        PointsRasterizationSettings,
+        PointsRenderer,
+        PulsarPointsRenderer,
+        PointsRasterizer,
+        AlphaCompositor,
+        NormWeightedCompositor,
+        PerspectiveCameras
+    )
+except:
+    print("No pytorch3d installed")
 import rospy
 from cv_bridge import CvBridge
 import tf2_ros
