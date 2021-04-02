@@ -1,9 +1,13 @@
 # Perception aware Trajectory Optimization
 
+Perception aware trajectory optimization based on point cloud visibility estimation in a camera frustum.
+The package is implemented as a ROS node with
+[examples](https://github.com/RuslanAgishev/trajectory_optimization/tree/master/notebooks) in jupyter-notebooks.
+
 ## Installation
 
 Please, follow installation instructions in
-[INSTALL.md](https://github.com/RuslanAgishev/frontier_exploration/blob/master/INSTALL.md)
+[INSTALL.md](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/INSTALL.md)
 
 ## Running
 
@@ -74,15 +78,15 @@ roslaunch frontier_exploration cam_traj_opt.launch
 
 ## Examples
 
-The [./notebooks](https://github.com/RuslanAgishev/frontier_exploration/tree/master/notebooks)
+The [./notebooks](https://github.com/RuslanAgishev/trajectory_optimization/tree/master/notebooks)
 folder contains the following examples:
-- [HPR](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/hidden_points_removal.ipynb):
+- [HPR](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/hidden_points_removal.ipynb):
     hidden points removal example with different input point clouds as well as from different camera poses.
 - Camera position Optimization,
-[in 2D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_pose_optimization_2d.ipynb),
-[in 3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/camera_pose_optimization_3d.ipynb):
+[in 2D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/camera_pose_optimization_2d.ipynb),
+[in 3D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/camera_pose_optimization_3d.ipynb):
     camera position optimization loop based on the point cloud visibility estimation.
-- [HPR, Open3D](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/open3d.ipynb):
+- [HPR, Open3D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/open3d.ipynb):
     hidden points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
-- [Point cloud Rendering on Image plane](https://github.com/RuslanAgishev/frontier_exploration/blob/master/notebooks/pytorch3d.ipynb):
+- [Point cloud Rendering on Image plane](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/pytorch3d.ipynb):
     point cloud hidden points removal with Open3D and rendering on an image plane with [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.
