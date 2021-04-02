@@ -2,7 +2,7 @@
 
 import os
 import rospkg
-FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
+FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 import torch
 import numpy as np
 import cv2

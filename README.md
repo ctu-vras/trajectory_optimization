@@ -17,7 +17,7 @@ Please, follow installation instructions in
 
 Ones the package is installed, run the launch file and specify the bag file location:
 ```bash
-roslaunch frontier_exploration pointcloud_processor.launch
+roslaunch trajectory_optimization pointcloud_processor.launch
 rosbag play PATH_TO_BAG_FILE -r 5 --clock
 ```
 Replace `PATH_TO_BAG_FILE` with the path to the bag file, for example: `./data/josef_2019-06-06-13-58-12_proc_0.1m.bag`
@@ -47,7 +47,7 @@ In this example, the points color encodes a distance-based (to camera frame) rew
 The white points are currently observed ones by camera.
 
 ```bash
-roslaunch frontier_exploration cam_position_opt.launch
+roslaunch trajectory_optimization cam_position_opt.launch
 ```
 
 ### Camera Waypoints Optimization
@@ -73,7 +73,7 @@ Based on the evaluation result, the trajectory (consisting of several waypoints)
 is optimized with the goal to increase overal visibility score.
 
 ```bash
-roslaunch frontier_exploration cam_traj_opt.launch
+roslaunch trajectory_optimization cam_traj_opt.launch
 ```
 
 ## Examples

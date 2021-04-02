@@ -1,7 +1,7 @@
 import sys
 import os
 import rospkg
-FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
+FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 import torch.nn as nn

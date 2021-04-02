@@ -3,7 +3,7 @@
 import os
 import sys
 import rospkg
-FE_PATH = rospkg.RosPack().get_path('frontier_exploration')
+FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 import numpy as np
@@ -50,7 +50,7 @@ width, height = 1232, 1616
 
 # Load point cloud
 obj_filename = os.path.join(FE_PATH, "data/fov_points/cam_pts_camera_0_1607456676.1540315.npz")
-# path = "../../../../../catkin_ws/src/frontier_exploration/data/fov_points/"
+# path = "../../../../../catkin_ws/src/trajectory_optimization/data/fov_points/"
 # np.random.seed(0)
 # obj_filename = os.path.join(path, np.random.choice(os.listdir(path)))
 pts_np = np.load(obj_filename)['pts'].transpose()
