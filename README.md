@@ -1,4 +1,4 @@
-# Frontier Exploration
+# Perception aware Trajectory Optimization
 
 ## Installation
 
