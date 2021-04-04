@@ -109,11 +109,11 @@ class Model(nn.Module):
                                          self.traj[i].unsqueeze(0)) * mask  # local observations reward (visibility)
 
             # apply log odds conversion for global voxel map observations update
-            p = torch.clip(p, 0.5, 1 - self.eps)
-            lo = torch.log(p / (1 - p))
+            p = torch.clip(p, 0.5, 1.0 - self.eps)
+            lo = torch.log(p / (1.0 - p))
             lo_sum = lo_sum + lo
 
-        self.rewards = 1 / (1 + torch.exp(-lo_sum))  # total trajectory observations
+        self.rewards = 1.0 / (1.0 + torch.exp(-lo_sum))  # total trajectory observations
         loss = self.criterion(self.rewards)
         return loss
 
@@ -157,7 +157,20 @@ class Model(nn.Module):
             # curvature
             k = 4 * S / (torch.linalg.norm(p1 - p2) * torch.linalg.norm(p2 - p3) * torch.linalg.norm(p3 - p1))
             K_traj[i - 1] = k
-        return torch.max(K_traj)
+        return torch.mean(K_traj)
+
+    def angle_calc(self, traj_wps):
+        phis = torch.zeros(len(traj_wps) - 2)
+        for i in range(1, len(traj_wps) - 1):
+            p1, p2, p3 = torch.as_tensor(traj_wps[i - 1]), torch.as_tensor(traj_wps[i]), torch.as_tensor(
+                traj_wps[i + 1])
+
+            AB = p1 - p2
+            AC = p3 - p2
+
+            phi = torch.arccos(torch.dot(AB, AC) / (torch.linalg.norm(AB) * torch.linalg.norm(AC) + self.eps))
+            phis[i - 1] = phi
+        return torch.mean(phis)
 
     def criterion(self, rewards):
         # transform observations to loss function: loss = N_points / sum(prob(observed))
@@ -167,23 +180,21 @@ class Model(nn.Module):
         self.loss['l2'] = 0.0
         for i in range(len(self.traj)):
             if i == 0:
-                # staying close to initial position is crucial (so the coef here is large ~1.0)
-                self.loss['l2'] += 1.0 * torch.linalg.norm(self.traj[i] - self.traj0[i])
+                self.loss['l2'] += torch.linalg.norm(self.traj[i] - self.traj0[i])
             else:
-                # the resultant trajectory should not necessarily lie close to original waypoints
-                # so the coef here is small ~0.0003
                 self.loss['l2'] += 0.0003 * torch.linalg.norm(self.traj[i] - self.traj0[i])
 
         # penalties for non-smooth trajectories (large pose derivatives, up to 4-th)
         # self.loss['smooth'] = self.smoothness_est(self.traj) * 0.004
 
-        # smoothness estimation based on curvature
-        # self.loss['smooth']  = self.curvature_calc(self.traj)
+        # smoothness estimation based on average angles between waypoints:
+        # the bigger the angle - the better
+        self.loss['smooth'] = 1. / self.angle_calc(self.traj)
 
         # penalty for trajectory length (compared to initial one)
         self.loss['length'] = torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0)) * 0.0002
 
-        return self.loss['vis'] + self.loss['l2'] + self.loss['length']  # + self.loss['smooth']
+        return self.loss['vis'] + self.loss['l2'] + self.loss['length'] + self.loss['smooth']
 
 
 if __name__ == "__main__":
@@ -211,10 +222,10 @@ if __name__ == "__main__":
     model = Model(points=points,
                   traj_wps=traj_0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
     # Run optimization loop
-    loop = tqdm(range(100))
+    loop = tqdm(range(400))
     for i in loop:
         if rospy.is_shutdown():
             break
