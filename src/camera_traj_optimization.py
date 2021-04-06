@@ -118,46 +118,11 @@ class Model(nn.Module):
         return loss
 
     @staticmethod
-    def smoothness_est(traj):
-        vel = torch.linalg.norm(traj[2:] - traj[:-2], dim=1)
-        acc = vel[1:] - vel[:-1]  # traj[2:] - 2*traj[1:-1] + traj[:-2]
-        jerk = acc[1:] - acc[:-1]
-        snap = jerk[1:] - jerk[:-1]
-        return torch.mean(torch.abs(vel)) + torch.mean(torch.abs(acc)) + \
-               torch.mean(torch.abs(jerk)) + torch.mean(torch.abs(snap))
-
-    @staticmethod
     def length_calc(traj):
         l = 0.0
         for i in range(len(traj) - 1):
             l += torch.linalg.norm(traj[i + 1] - traj[i])
         return l
-
-    @staticmethod
-    def curvature_calc(traj_wps):
-        """
-        Calculates average trajectory curvature
-        References:
-            - https://en.wikipedia.org/wiki/Menger_curvature#Definition
-            - https://math.stackexchange.com/questions/128991/how-to-calculate-the-area-of-a-3d-triangle
-        """
-        # computing curvature at i-th waypoint (i.e. traj_wps[i])
-        K_traj = torch.zeros(len(traj_wps) - 2)
-        for i in range(1, len(traj_wps) - 1):
-            p1, p2, p3 = torch.as_tensor(traj_wps[i - 1]), torch.as_tensor(traj_wps[i]), torch.as_tensor(
-                traj_wps[i + 1])
-
-            AB = p1 - p2
-            AC = p3 - p2
-
-            # area of the triangle
-            S = 0.5 * torch.sqrt((AB[1] * AC[2] - AB[2] * AC[1]) ** 2 + (AB[2] * AC[0] - AB[0] * AC[2]) ** 2 + (
-                        AB[0] * AC[1] - AB[1] * AC[0]) ** 2)
-
-            # curvature
-            k = 4 * S / (torch.linalg.norm(p1 - p2) * torch.linalg.norm(p2 - p3) * torch.linalg.norm(p3 - p1))
-            K_traj[i - 1] = k
-        return torch.mean(K_traj)
 
     def angle_calc(self, traj_wps):
         phis = torch.zeros(len(traj_wps) - 2)
@@ -177,22 +142,16 @@ class Model(nn.Module):
         self.loss['vis'] = len(self.points) / (torch.sum(rewards) + self.eps)
 
         # penalties for being far from initial waypoints
-        self.loss['l2'] = 0.0
-        for i in range(len(self.traj)):
-            if i == 0:
-                self.loss['l2'] += torch.linalg.norm(self.traj[i] - self.traj0[i])
-            else:
-                self.loss['l2'] += 0.0003 * torch.linalg.norm(self.traj[i] - self.traj0[i])
-
-        # penalties for non-smooth trajectories (large pose derivatives, up to 4-th)
-        # self.loss['smooth'] = self.smoothness_est(self.traj) * 0.004
+        self.loss['l2'] = torch.linalg.norm(self.traj[0] - self.traj0[0])
+        # for i in range(1, len(self.traj)):
+        #     self.loss['l2'] += 0.0003*torch.linalg.norm(self.traj[i] - self.traj0[i])
 
         # smoothness estimation based on average angles between waypoints:
-        # the bigger the angle - the better
-        self.loss['smooth'] = 1. / self.angle_calc(self.traj)
+        # the bigger the angle the better
+        self.loss['smooth'] = 0.05 / (self.angle_calc(self.traj) + self.eps)
 
         # penalty for trajectory length (compared to initial one)
-        self.loss['length'] = torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0)) * 0.0002
+        self.loss['length'] = 0.0005 * torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0))
 
         return self.loss['vis'] + self.loss['l2'] + self.loss['length'] + self.loss['smooth']
 
@@ -207,6 +166,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     # Set paths
     index = 1612893730.3432848
+    # index = np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/")))[12:-4]
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts'].transpose()
 
