@@ -149,7 +149,7 @@ class Model(nn.Module):
         super().__init__()
         self.points = points
         self.device = points.device
-        self.reward = None
+        self.rewards = None
         self.observations = None
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
         self.cfg = cfg
@@ -188,10 +188,11 @@ class Model(nn.Module):
         return fov_mask
 
     def to_camera_frame(self, verts, R, T):
-        R_inv = R.squeeze().T
-        verts_cam = R_inv @ (verts - torch.repeat_interleave(T, len(verts), dim=0).to(self.device)).T
-        verts_cam = verts_cam.T
-        return verts_cam
+        R_inv = torch.transpose(torch.squeeze(R, 0), 0, 1)
+        verts = torch.transpose(verts - torch.repeat_interleave(T, len(verts), dim=0).to(self.device), 0, 1)
+        verts = torch.matmul(R_inv, verts)
+        verts = torch.transpose(verts, 0, 1)
+        return verts
 
     @staticmethod
     def gaussian(x, mu=3.0, sigma=5.0, normalize=False):
@@ -201,11 +202,11 @@ class Model(nn.Module):
             g /= (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
         return g
 
-    def distance_visibility(self, verts):
+    def visibility_estimation(self, verts, mask):
         # compute visibility based on distance of the surrounding points
         dists = torch.linalg.norm(verts, dim=1)
         observations = self.gaussian(dists, mu=self.cfg['dist_rewards_mean'], sigma=self.cfg['dist_rewards_sigma'])
-        return observations
+        return observations * mask
 
     def log_odds_conversion(self, p):
         # apply log odds conversion for global voxel map observations update
@@ -236,10 +237,10 @@ class Model(nn.Module):
         mask = torch.logical_and(dist_mask, fov_mask)
 
         # calculate gaussian distance based observations
-        observations = self.distance_visibility(verts)
-        self.observations = observations * mask
-        self.reward = self.log_odds_conversion(self.observations)
+        self.observations = self.visibility_estimation(verts, mask)
+        self.rewards = self.log_odds_conversion(self.observations)
 
         # remove points that are outside of camera FOV
         verts = verts[mask, :]
+        # loss = 1. / (torch.sum(self.observations) + self.cfg['eps'])
         return verts, loss

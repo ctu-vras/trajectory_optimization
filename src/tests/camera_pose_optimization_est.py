@@ -7,16 +7,13 @@ FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 from tqdm import tqdm
-import torch.nn as nn
 import numpy as np
 import cv2
-from pytorch3d.renderer import look_at_view_transform, look_at_rotation
 from pytorch3d.transforms import matrix_to_quaternion, random_rotation, euler_angles_to_matrix
 from tools import render_pc_image
 from tools import hidden_pts_removal
 from tools import load_intrinsics
-from model import Model
-
+from model_est import Model
 
 import rospy
 from tools import publish_odom
@@ -24,10 +21,6 @@ from tools import publish_pointcloud
 from tools import publish_tf_pose
 from tools import publish_camera_info
 from tools import publish_image
-from tools import publish_path
-from tools import to_pose_stamped
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
 
 
 if __name__ == "__main__":
@@ -39,10 +32,9 @@ if __name__ == "__main__":
     else:
         device = torch.device("cpu")
     # Set paths to point cloud data
-    index = 1612893730.3432848
+    index = 10
+    # index = np.random.choice(range(0, 98))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
-    # points_filename = os.path.join(FE_PATH, "data/points/",
-    #                                np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/"))))
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
     if pts_np.shape[1] > pts_np.shape[0]:
@@ -92,7 +84,7 @@ if __name__ == "__main__":
 
             # publish ROS msgs
             # intensity = model.observations.unsqueeze(1).detach().cpu().numpy()
-            rewards_np = model.reward.unsqueeze(1).detach().cpu().numpy()
+            rewards_np = model.rewards.unsqueeze(1).detach().cpu().numpy()
             pts_rewards = np.concatenate([pts_np, rewards_np], axis=1)  # add observations for pts intensity visualization
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')

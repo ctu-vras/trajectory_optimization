@@ -38,7 +38,7 @@ class Model(nn.Module):
         self.traj0 = torch.from_numpy(np.array(traj_wps, dtype=np.float32)).to(self.device)  # (N, 3)
 
         self.traj = nn.Parameter(deepcopy(self.traj0))
-        self.rots = nn.Parameter(self.rot0)
+        self.rots = nn.Parameter(deepcopy(self.rot0))
 
         self.K, self.width, self.height = load_intrinsics(device=self.device)
         self.eps = 1e-6
@@ -61,9 +61,9 @@ class Model(nn.Module):
         # find points that are observed by the camera (in its FOV)
         pts_homo = intrins[:3, :3] @ points
         pts_homo[:2] /= pts_homo[2:3]
-        fov_mask = (pts_homo[2] > 0) & (pts_homo[0] > 1) & \
-                   (pts_homo[0] < img_width - 1) & (pts_homo[1] > 1) & \
-                   (pts_homo[1] < img_height - 1)
+        fov_mask = (pts_homo[2] > 0) & \
+                   (pts_homo[0] > 1) & (pts_homo[0] < img_width - 1) & \
+                   (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
         return fov_mask
 
     def to_camera_frame(self, verts, R, T):
@@ -81,9 +81,9 @@ class Model(nn.Module):
             g /= (sigma * torch.sqrt(torch.tensor(2 * np.pi)))
         return g
 
-    def distance_visibility(self, verts, pose):
+    def visiblity_estimation(self, verts):
         # compute observations based on distance of the surrounding points
-        dists = torch.linalg.norm(pose - verts, dim=1)
+        dists = torch.linalg.norm(verts, dim=1)
         rewards = self.gaussian(dists, mu=self.dist_rewards['mean'], sigma=self.dist_rewards['dist_rewards_sigma'])
         return rewards
 
@@ -97,16 +97,15 @@ class Model(nn.Module):
         for i in range(N_wps):
             # transform points to camera frame
             verts = self.to_camera_frame(self.points, self.rots[i].unsqueeze(0), self.traj[i].unsqueeze(0))
-            verts = torch.transpose(verts, 0, 1)
 
             # get masks of points that are inside of the camera FOV
-            dist_mask = self.get_dist_mask(verts, self.pc_clip_limits[0], self.pc_clip_limits[1])
-            fov_mask = self.get_fov_mask(verts, self.height, self.width, self.K.squeeze(0))
+            dist_mask = self.get_dist_mask(torch.transpose(verts, 0, 1), self.pc_clip_limits[0], self.pc_clip_limits[1])
+            fov_mask = self.get_fov_mask(torch.transpose(verts, 0, 1), self.height, self.width, self.K.squeeze(0))
 
             mask = torch.logical_and(dist_mask, fov_mask)
 
-            p = self.distance_visibility(self.points,
-                                         self.traj[i].unsqueeze(0)) * mask  # local observations reward (visibility)
+            # p = self.visiblity_estimation(verts) * mask  # local observations reward (visibility)
+            p = self.visiblity_estimation(self.points - self.traj[i].unsqueeze(0)) * mask
 
             # apply log odds conversion for global voxel map observations update
             p = torch.clip(p, 0.5, 1.0 - self.eps)
@@ -151,7 +150,7 @@ class Model(nn.Module):
         self.loss['smooth'] = 0.05 / (self.angle_calc(self.traj) + self.eps)
 
         # penalty for trajectory length (compared to initial one)
-        self.loss['length'] = 0.0005 * torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0))
+        self.loss['length'] = 0.0006 * torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0))
 
         return self.loss['vis'] + self.loss['l2'] + self.loss['length'] + self.loss['smooth']
 
@@ -165,8 +164,8 @@ if __name__ == "__main__":
     else:
         device = torch.device("cpu")
     # Set paths
-    index = 1612893730.3432848
-    # index = np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/")))[12:-4]
+    index = 13
+    # index = np.random.choice(range(0, 98))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts'].transpose()
 
@@ -185,6 +184,8 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
     # Run optimization loop
+    FIRST_RECORD = True
+    reward0 = None
     loop = tqdm(range(400))
     for i in loop:
         if rospy.is_shutdown():
@@ -197,7 +198,10 @@ if __name__ == "__main__":
         if i % 4 == 0:
             for key in model.loss:
                 print(f"{key} loss: {model.loss[key]}")
-            print(f"Trajectory visibility score: {torch.sum(model.rewards)}")
+            if FIRST_RECORD:
+                reward0 = torch.sum(model.rewards)
+                FIRST_RECORD = False
+            print(f"Trajectory visibility score: {torch.sum(model.rewards)} / {reward0}")
 
             # publish ROS msgs
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()

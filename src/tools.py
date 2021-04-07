@@ -291,12 +291,19 @@ def publish_pose(pose, orient, topic_name):
     pub.publish(msg)
 
 
-def publish_path(path_list, orient=[0,0,0,1], topic_name='/path', frame_id='world'):
+def publish_path(path_list, orient_list=None, topic_name='/path', frame_id='world'):
     path = Path()
-    for pose in path_list:
-        msg = to_pose_stamped(pose, orient, frame_id=frame_id)
-        path.header = msg.header
-        path.poses.append(msg)
+    if orient_list is None:
+        orient = [0, 0, 0, 1]
+        for pose in path_list:
+            msg = to_pose_stamped(pose, orient, frame_id=frame_id)
+            path.header = msg.header
+            path.poses.append(msg)
+    else:
+        for pose, orient in zip(path_list, orient_list):
+            msg = to_pose_stamped(pose, orient, frame_id=frame_id)
+            path.header = msg.header
+            path.poses.append(msg)
     pub = rospy.Publisher(topic_name, Path, queue_size=1)
     pub.publish(path)
 

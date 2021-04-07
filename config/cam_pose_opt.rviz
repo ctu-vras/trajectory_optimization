@@ -134,7 +134,7 @@ Visualization Manager:
       Queue Size: 10
       Shape:
         Alpha: 1
-        Axes Length: 0.10000000149011612
+        Axes Length: 0.20000000298023224
         Axes Radius: 0.10000000149011612
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
@@ -169,7 +169,7 @@ Visualization Manager:
     - Class: rviz/Group
       Displays:
         - Alpha: 1
-          Axes Length: 0.10000000149011612
+          Axes Length: 0.5
           Axes Radius: 0.10000000149011612
           Class: rviz/Pose
           Color: 255; 25; 0
@@ -185,13 +185,13 @@ Visualization Manager:
           Unreliable: false
           Value: true
         - Class: jsk_rviz_plugin/CameraInfo
-          Enabled: false
+          Enabled: true
           Image Topic: ""
           Name: CameraInfo
           Queue Size: 10
           Topic: /camera/camera_info
           Unreliable: false
-          Value: false
+          Value: true
           alpha: 0.20000000298023224
           color: 85; 255; 255
           edge color: 125; 125; 125
@@ -267,7 +267,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 25.821666717529297
+      Distance: 22.992692947387695
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -283,9 +283,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5547983050346375
+      Pitch: 0.39979833364486694
       Target Frame: <Fixed Frame>
-      Yaw: 3.8335392475128174
+      Yaw: 2.6435489654541016
     Saved: ~
 Window Geometry:
   Displays:
