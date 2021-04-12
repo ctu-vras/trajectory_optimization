@@ -12,7 +12,7 @@ import cv2
 from tools import render_pc_image
 from tools import hidden_pts_removal
 from tools import load_intrinsics
-from model import Model
+from model import ModelPose
 
 import rospy
 import tf
@@ -56,10 +56,10 @@ if __name__ == "__main__":
     # q0 = random_quaternions(1)
 
     # Initialize a model
-    model = Model(points=points,
-                  trans0=trans0,
-                  q0=q0,
-                  min_dist=1.0, max_dist=5.0).to(device)
+    model = ModelPose(points=points,
+                      trans0=trans0,
+                      q0=q0,
+                      min_dist=1.0, max_dist=5.0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam([
         {'params': list([model.trans]), 'lr': 0.01},
