@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import ctypes
+libgcc_s = ctypes.CDLL('libgcc_s.so.1')
 import sys
 import os
 import rospkg
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     else:
         device = torch.device("cpu")
     # Set paths
-    index = 13
+    index = 10
     # index = np.random.choice(range(0, 98))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts'].transpose()

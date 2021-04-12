@@ -97,7 +97,8 @@ class Model(nn.Module):
         # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
         mask = torch.logical_and(dist_mask, fov_mask)
 
-        self.observations = self.visibility_estimation(verts, mask)  # local observations reward (visibility)
+        # self.observations = self.visibility_estimation(verts, mask)  # local observations reward (visibility)
+        self.observations = self.visibility_estimation(self.points - self.T, mask)  # TODO: this doesn't optimize rotation
         self.rewards = self.log_odds_conversion(self.observations)  # total trajectory observations
         loss = self.criterion(self.observations)
         return verts[mask, :], loss

@@ -36,7 +36,7 @@ if __name__ == "__main__":
     K, img_width, img_height = load_intrinsics(device=device)
 
     # Set paths to data
-    index = 2
+    index = 10
     # index = np.random.choice(range(0, 98))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']

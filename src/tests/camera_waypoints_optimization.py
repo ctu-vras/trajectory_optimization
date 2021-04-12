@@ -38,9 +38,8 @@ if __name__ == "__main__":
     K, width, height = load_intrinsics(device=device)
 
     # Set paths
-    # points_filename = os.path.join(FE_PATH, "data/points/",
-    #                             np.random.choice(os.listdir(os.path.join(FE_PATH, "data/points/"))))
-    index = 1612893730.3432848
+    # index = np.random.choice(range(0, 98))
+    index = 10
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
