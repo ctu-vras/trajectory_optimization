@@ -10,6 +10,8 @@ sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
 from tqdm import tqdm
 import torch.nn as nn
+import torch.nn.functional as F
+from pytorch3d.transforms import quaternion_invert, quaternion_apply
 import numpy as np
 from copy import deepcopy
 
@@ -23,7 +25,8 @@ from tools import publish_path
 class Model(nn.Module):
     def __init__(self,
                  points: torch.tensor,
-                 traj_wps: list,  # [np.array([x0, y0, z0]), np.array([x1, y1, z1]), ...]
+                 wps_poses: list,  # [np.array([x0, y0, z0]), np.array([x1, y1, z1]), ...]
+                 wps_quats: torch.tensor,  # (N, 4)
                  min_dist=1.0, max_dist=10.0,
                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0):
         super().__init__()
@@ -34,13 +37,11 @@ class Model(nn.Module):
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
         # Create an optimizable parameter for the x, y, z position of the camera.
-        self.rot0 = torch.eye(3, device=self.device).unsqueeze(0)
-        for i in range(len(traj_wps) - 1):
-            self.rot0 = torch.cat([self.rot0, torch.eye(3, device=self.device).unsqueeze(0)])  # (N, 3, 3)
-        self.traj0 = torch.from_numpy(np.array(traj_wps, dtype=np.float32)).to(self.device)  # (N, 3)
+        self.poses0 = torch.from_numpy(np.array(wps_poses, dtype=np.float32)).to(self.device)  # (N, 3)
+        self.quats0 = wps_quats
 
-        self.traj = nn.Parameter(deepcopy(self.traj0))
-        self.rots = nn.Parameter(deepcopy(self.rot0))
+        self.poses = nn.Parameter(deepcopy(self.poses0))
+        self.quats = nn.Parameter(deepcopy(self.quats0))
 
         self.K, self.width, self.height = load_intrinsics(device=self.device)
         self.eps = 1e-6
@@ -68,11 +69,12 @@ class Model(nn.Module):
                    (pts_homo[1] > 1) & (pts_homo[1] < img_height - 1)
         return fov_mask
 
-    def to_camera_frame(self, verts, R, T):
-        R_inv = torch.transpose(torch.squeeze(R, 0), 0, 1)
-        verts = torch.transpose(verts - torch.repeat_interleave(T, len(verts), dim=0).to(self.device), 0, 1)
-        verts = torch.matmul(R_inv, verts)
-        verts = torch.transpose(verts, 0, 1)
+    @staticmethod
+    def to_camera_frame(verts, quat, trans):
+        q = F.normalize(quat)
+        q_inv = quaternion_invert(q)
+        verts = verts - trans
+        verts = quaternion_apply(q_inv, verts)
         return verts
 
     @staticmethod
@@ -94,11 +96,11 @@ class Model(nn.Module):
         Trajectory evaluation based on visibility estimation from its waypoints.
         traj_score = log_odds_sum([visibility_estimation(wp) for wp in traj_waypoints])
         """
-        N_wps = self.traj.size()[0]
+        N_wps = self.poses.size()[0]
         lo_sum = 0.0
         for i in range(N_wps):
             # transform points to camera frame
-            verts = self.to_camera_frame(self.points, self.rots[i].unsqueeze(0), self.traj[i].unsqueeze(0))
+            verts = self.to_camera_frame(self.points, self.quats[i].unsqueeze(0), self.poses[i].unsqueeze(0))
 
             # get masks of points that are inside of the camera FOV
             dist_mask = self.get_dist_mask(torch.transpose(verts, 0, 1), self.pc_clip_limits[0], self.pc_clip_limits[1])
@@ -106,8 +108,8 @@ class Model(nn.Module):
 
             mask = torch.logical_and(dist_mask, fov_mask)
 
-            # p = self.visiblity_estimation(verts) * mask  # local observations reward (visibility)
-            p = self.visiblity_estimation(self.points - self.traj[i].unsqueeze(0)) * mask
+            p = self.visiblity_estimation(verts) * mask  # local observations reward (visibility)
+            # p = self.visiblity_estimation(self.points - self.traj[i].unsqueeze(0)) * mask
 
             # apply log odds conversion for global voxel map observations update
             p = torch.clip(p, 0.5, 1.0 - self.eps)
@@ -143,16 +145,16 @@ class Model(nn.Module):
         self.loss['vis'] = len(self.points) / (torch.sum(rewards) + self.eps)
 
         # penalties for being far from initial waypoints
-        self.loss['l2'] = torch.linalg.norm(self.traj[0] - self.traj0[0])
+        self.loss['l2'] = torch.linalg.norm(self.poses[0] - self.poses0[0])
         # for i in range(1, len(self.traj)):
         #     self.loss['l2'] += 0.0003*torch.linalg.norm(self.traj[i] - self.traj0[i])
 
         # smoothness estimation based on average angles between waypoints:
         # the bigger the angle the better
-        self.loss['smooth'] = 0.05 / (self.angle_calc(self.traj) + self.eps)
+        self.loss['smooth'] = 0.05 / (self.angle_calc(self.poses) + self.eps)
 
         # penalty for trajectory length (compared to initial one)
-        self.loss['length'] = 0.0006 * torch.abs(self.length_calc(self.traj) - self.length_calc(self.traj0))
+        self.loss['length'] = 0.0006 * torch.abs(self.length_calc(self.poses) - self.length_calc(self.poses0))
 
         return self.loss['vis'] + self.loss['l2'] + self.loss['length'] + self.loss['smooth']
 
@@ -175,15 +177,24 @@ if __name__ == "__main__":
     if pts_np.shape[1] > pts_np.shape[0]:
         pts_np = pts_np.transpose()
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
-
+    # positions: (x, y, z) for each waypoint
     poses_filename = os.path.join(FE_PATH, f"data/paths/path_poses_{index}.npz")
-    traj_0 = np.load(poses_filename)['poses'].tolist()
+    poses_0 = np.load(poses_filename)['poses'].tolist()
+    # orientations: quaternion for each waypoint
+    quats_0 = torch.tensor([[1., 0., 0., 0.]], dtype=torch.float32)
+    for i in range(len(poses_0) - 1):
+        quats_0 = torch.cat([quats_0, torch.tensor([[1., 0., 0., 0.]], dtype=torch.float32)])  # (N, 4)
 
     # Initialize a model
     model = Model(points=points,
-                  traj_wps=traj_0).to(device)
+                  wps_poses=poses_0,
+                  wps_quats=quats_0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    optimizer = torch.optim.Adam([
+        {'params': list([model.poses]), 'lr': 0.01},
+        {'params': list([model.quats]), 'lr': 2.0},
+    ])
 
     # Run optimization loop
     FIRST_RECORD = True
@@ -210,5 +221,9 @@ if __name__ == "__main__":
             # print(np.min(intensity), np.mean(intensity), np.max(intensity))
             points = np.concatenate([pts_np, intensity], axis=1)  # add observations for pts intensity visualization
             publish_pointcloud(points, '/pts', rospy.Time.now(), 'world')
-            publish_path(traj_0, topic_name='/path/initial', frame_id='world')
-            publish_path(model.traj.detach(), topic_name='/path/optimized', frame_id='world')
+            publish_path(poses_0, topic_name='/path/initial', frame_id='world')
+
+            # publish path with positions and orientations
+            poses_to_pub = model.poses.detach()
+            quats_to_pub = [quat / torch.linalg.norm(quat) for quat in model.quats.detach()]
+            publish_path(poses_to_pub, quats_to_pub, topic_name='/path/optimized', frame_id='world')

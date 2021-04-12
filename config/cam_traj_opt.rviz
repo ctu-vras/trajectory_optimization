@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Points
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -225,7 +225,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Pose Color: 252; 233; 79
-      Pose Style: Arrows
+      Pose Style: None
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
@@ -248,7 +248,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Pose Color: 255; 85; 255
-      Pose Style: Arrows
+      Pose Style: Axes
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
@@ -283,25 +283,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 39.04380416870117
+      Distance: 13.059211730957031
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 15.945291519165039
-        Y: 18.7598876953125
+        X: 11.885945320129395
+        Y: 15.144211769104004
         Z: 1.6266744751192164e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4047985374927521
+      Pitch: 0.40979841351509094
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.0085318088531494
+      Yaw: 2.506699800491333
     Saved: ~
 Window Geometry:
   Displays:
