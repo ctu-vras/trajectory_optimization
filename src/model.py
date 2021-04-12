@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from pytorch3d.transforms import euler_angles_to_matrix
+from pytorch3d.transforms import quaternion_invert, quaternion_apply
 from tools import load_intrinsics, hidden_pts_removal
-from copy import deepcopy
+import torch.nn.functional as F
 
 
 class Model(nn.Module):
     def __init__(self,
                  points,
-                 x0=0.0, y0=0.0, z0=0.0,
-                 roll0=0.0, pitch0=0.0, yaw0=0.0,
+                 trans0=torch.tensor([[0., 0., 0.]]),  # t = (x, y, z)
+                 q0=torch.tensor([[1., 0., 0., 0.]]),  # q = (w, x, y, z)
                  min_dist=1.0, max_dist=10.0,
                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0):
         super().__init__()
@@ -20,17 +20,11 @@ class Model(nn.Module):
         self.device = points.device
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
-        # Create an optimizable parameter for the x, y, z position of the camera.
-        # self.roll = nn.Parameter(torch.as_tensor(roll0, dtype=torch.float32).to(self.device))
-        # self.pitch = nn.Parameter(torch.as_tensor(pitch0, dtype=torch.float32).to(self.device))
-        # self.yaw = nn.Parameter(torch.as_tensor(yaw0, dtype=torch.float32).to(self.device))
-
-        T = torch.from_numpy(np.array([x0, y0, z0], dtype=np.float32)).unsqueeze(0).to(self.device)
-        self.T = nn.Parameter(T)
-        R = euler_angles_to_matrix(torch.tensor([roll0,
-                                                 pitch0,
-                                                 yaw0]), "XYZ").unsqueeze(0).to(self.device)
-        self.R = nn.Parameter(R)
+        # Create an optimizable parameter for the x, y, z position and quaternion orientation of the camera.
+        trans = torch.as_tensor(trans0, dtype=torch.float32).to(self.device)
+        self.trans = nn.Parameter(trans)
+        quat = torch.as_tensor(q0, dtype=torch.float32).to(self.device)
+        self.quat = nn.Parameter(quat)
 
         self.K, self.width, self.height = load_intrinsics(device=self.device)
         self.eps = 1e-6
@@ -54,10 +48,10 @@ class Model(nn.Module):
         return fov_mask
 
     def to_camera_frame(self, verts):
-        R_inv = torch.transpose(torch.squeeze(self.R, 0), 0, 1)
-        verts = torch.transpose(verts - torch.repeat_interleave(self.T, len(verts), dim=0).to(self.device), 0, 1)
-        verts = torch.matmul(R_inv, verts)
-        verts = torch.transpose(verts, 0, 1)
+        q = F.normalize(self.quat)
+        q_inv = quaternion_invert(q)
+        verts = verts - self.trans
+        verts = quaternion_apply(q_inv, verts)
         return verts
 
     @staticmethod
@@ -97,8 +91,7 @@ class Model(nn.Module):
         # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
         mask = torch.logical_and(dist_mask, fov_mask)
 
-        # self.observations = self.visibility_estimation(verts, mask)  # local observations reward (visibility)
-        self.observations = self.visibility_estimation(self.points - self.T, mask)  # TODO: this doesn't optimize rotation
+        self.observations = self.visibility_estimation(verts, mask)  # local observations reward (visibility)
         self.rewards = self.log_odds_conversion(self.observations)  # total trajectory observations
         loss = self.criterion(self.observations)
         return verts[mask, :], loss

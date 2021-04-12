@@ -9,18 +9,20 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import cv2
-from pytorch3d.transforms import matrix_to_quaternion, random_rotation
 from tools import render_pc_image
 from tools import hidden_pts_removal
 from tools import load_intrinsics
 from model import Model
 
 import rospy
+import tf
 from tools import publish_odom
 from tools import publish_pointcloud
 from tools import publish_tf_pose
 from tools import publish_camera_info
 from tools import publish_image
+import torch.nn.functional as F
+from pytorch3d.transforms import random_quaternions
 
 
 if __name__ == "__main__":
@@ -46,19 +48,26 @@ if __name__ == "__main__":
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initial position to optimize
-    x0, y0, z0 = torch.tensor([9.0, 2.0, 0.0], dtype=torch.float)
-    roll0, pitch0, yaw0 = torch.tensor([1.0, 0.0, 0.0], dtype=torch.float)
+    trans0 = torch.tensor([[9.0, 2.0, 0.0]], dtype=torch.float32)
+    # q0 = tf.transformations.quaternion_from_euler(0, 0, 0)
+    # q0 = torch.tensor([[1., 0., 0., 0.]], dtype=torch.float32)
+    xyzw = tf.transformations.quaternion_from_euler(np.pi/2, np.pi/4, 0.0)
+    q0 = torch.tensor([[xyzw[1], xyzw[2], xyzw[3], xyzw[0]]], dtype=torch.float32)
+    # q0 = random_quaternions(1)
 
     # Initialize a model
     model = Model(points=points,
-                  x0=x0, y0=y0, z0=z0,
-                  roll0=roll0, pitch0=pitch0, yaw0=yaw0,
+                  trans0=trans0,
+                  q0=q0,
                   min_dist=1.0, max_dist=5.0).to(device)
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
+    optimizer = torch.optim.Adam([
+        {'params': list([model.trans]), 'lr': 0.01},
+        {'params': list([model.quat]), 'lr': 30.0},
+    ])
 
     # Run optimization loop
-    for i in tqdm(range(200)):
+    for i in tqdm(range(500)):
         if rospy.is_shutdown():
             break
         optimizer.zero_grad()
@@ -87,9 +96,9 @@ if __name__ == "__main__":
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(pts_rewards, '/pts', rospy.Time.now(), 'world')
-            quat = matrix_to_quaternion(model.R).squeeze()
+            quat = F.normalize(model.quat).squeeze()
             quat = (quat[1], quat[2], quat[3], quat[0])
-            trans = model.T.squeeze()
+            trans = model.trans.squeeze()
             publish_odom(trans, quat, frame='world', topic='/odom')
             publish_tf_pose(trans, quat, "camera_frame", frame_id="world")
             publish_camera_info(topic_name="/camera/camera_info", frame_id="camera_frame")
