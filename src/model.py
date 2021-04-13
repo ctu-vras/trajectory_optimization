@@ -85,19 +85,20 @@ class ModelPose(nn.Module):
         rewards = 1 / (1 + torch.exp(-self.lo_sum))
         return rewards
 
-    def forward(self):
+    def forward(self, hpr=False):
         # transform points to camera frame
         verts = to_camera_frame(self.points, self.quat, self.trans)
 
         # get masks of points that are inside of the camera FOV
-        dist_mask = get_dist_mask(verts.T, self.pc_clip_limits[0], self.pc_clip_limits[1])
-        fov_mask = get_fov_mask(verts.T, self.height, self.width, self.K.squeeze(0))
+        dist_mask = get_dist_mask(torch.transpose(verts, 0, 1), self.pc_clip_limits[0], self.pc_clip_limits[1])
+        fov_mask = get_fov_mask(torch.transpose(verts, 0, 1), self.height, self.width, self.K.squeeze(0))
 
-        # HPR: remove occluded points
-        # occlusion_mask = hidden_pts_removal(points.detach(), device=self.device)[1]
-
-        # mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
-        mask = torch.logical_and(dist_mask, fov_mask)
+        if hpr:
+            # HPR: remove occluded points
+            occlusion_mask = hidden_pts_removal(verts.detach(), device=self.device)[1]
+            mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
+        else:
+            mask = torch.logical_and(dist_mask, fov_mask)
 
         self.observations = visiblity_estimation(verts,
                                                  self.dist_rewards['mean'],
@@ -117,14 +118,14 @@ Model for trajectory optimization
 """
 
 
-def length_calc(traj):
+def length_calc(traj: torch.tensor):
     l = 0.0
     for i in range(len(traj) - 1):
         l += torch.linalg.norm(traj[i + 1] - traj[i])
     return l
 
 
-def angle_calc(traj_wps, eps=1e-6):
+def mean_angle_calc(traj_wps, eps=1e-6):
     phis = torch.zeros(len(traj_wps) - 2)
     for i in range(1, len(traj_wps) - 1):
         p1, p2, p3 = torch.as_tensor(traj_wps[i - 1]), torch.as_tensor(traj_wps[i]), torch.as_tensor(
@@ -144,7 +145,8 @@ class ModelTraj(nn.Module):
                  wps_poses: list,  # [np.array([x0, y0, z0]), np.array([x1, y1, z1]), ...]
                  wps_quats: torch.tensor,  # (N, 4)
                  min_dist=1.0, max_dist=10.0,
-                 dist_rewards_mean=3.0, dist_rewards_sigma=2.0):
+                 dist_rewards_mean=3.0, dist_rewards_sigma=2.0,
+                 smoothness_weight=1.0, traj_length_weight=0.005):
         super().__init__()
         self.points = points
         self.rewards = None
@@ -154,7 +156,7 @@ class ModelTraj(nn.Module):
 
         # Create an optimizable parameter for the x, y, z position of the camera.
         self.poses0 = torch.from_numpy(np.array(wps_poses, dtype=np.float32)).to(self.device)  # (N, 3)
-        self.quats0 = wps_quats
+        self.quats0 = wps_quats  # (N, 4) torch.tensor: [w, x, y, z]-format
 
         self.poses = nn.Parameter(deepcopy(self.poses0))
         self.quats = nn.Parameter(deepcopy(self.quats0))
@@ -168,8 +170,10 @@ class ModelTraj(nn.Module):
                      'length': float('inf'),
                      'l2': float('inf'),
                      'smooth': float('inf')}
+        self.smoothness_weight = smoothness_weight
+        self.traj_length_weight = traj_length_weight
 
-    def forward(self):
+    def forward(self, hpr=False):
         """
         Trajectory evaluation based on visibility estimation from its waypoints.
         traj_score = log_odds_sum([visibility_estimation(wp) for wp in traj_waypoints])
@@ -184,7 +188,12 @@ class ModelTraj(nn.Module):
             dist_mask = get_dist_mask(torch.transpose(verts, 0, 1), self.pc_clip_limits[0], self.pc_clip_limits[1])
             fov_mask = get_fov_mask(torch.transpose(verts, 0, 1), self.height, self.width, self.K.squeeze(0))
 
-            mask = torch.logical_and(dist_mask, fov_mask)
+            if hpr:
+                # HPR: remove occluded points
+                occlusion_mask = hidden_pts_removal(verts.detach(), device=self.device)[1]
+                mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
+            else:
+                mask = torch.logical_and(dist_mask, fov_mask)
 
             p = visiblity_estimation(verts,
                                      self.dist_rewards['mean'],
@@ -210,9 +219,9 @@ class ModelTraj(nn.Module):
 
         # smoothness estimation based on average angles between waypoints:
         # the bigger the angle the better
-        self.loss['smooth'] = 1.0 / (angle_calc(self.poses, self.eps) + self.eps)
+        self.loss['smooth'] = self.smoothness_weight / (mean_angle_calc(self.poses, self.eps) + self.eps)
 
         # penalty for trajectory length (compared to initial one)
-        self.loss['length'] = 0.005 * torch.abs(length_calc(self.poses) - length_calc(self.poses0))
+        self.loss['length'] = self.traj_length_weight * torch.abs(length_calc(self.poses) - length_calc(self.poses0))
 
         return self.loss['vis'] + self.loss['l2'] + self.loss['length'] + self.loss['smooth']

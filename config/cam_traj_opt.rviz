@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Points
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -283,25 +283,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 13.059211730957031
+      Distance: 17.774444580078125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 11.885945320129395
-        Y: 15.144211769104004
+        X: 5.609930515289307
+        Y: 5.534358978271484
         Z: 1.6266744751192164e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.40979841351509094
+      Pitch: 1.2547976970672607
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz)
-      Yaw: 2.506699800491333
+      Yaw: 2.2616958618164062
     Saved: ~
 Window Geometry:
   Displays:

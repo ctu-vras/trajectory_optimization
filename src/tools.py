@@ -294,7 +294,7 @@ def publish_pose(pose, orient, topic_name):
 def publish_path(path_list, orient_list=None, topic_name='/path', frame_id='world'):
     path = Path()
     if orient_list is None:
-        orient = [0, 0, 0, 1]
+        orient = [0, 0, 0, 1]  # [x, y, z, w] - format
         for pose in path_list:
             msg = to_pose_stamped(pose, orient, frame_id=frame_id)
             path.header = msg.header

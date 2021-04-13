@@ -67,7 +67,7 @@ is done in [OctoMap](https://www.researchgate.net/publication/235008236_OctoMap_
 
 ### Camera Trajectory Optimization
 
-<img src="./demos/cam_traj_opt_unconstrained.gif">
+<img src="./demos/cam_traj_opt.gif">
 
 Based on the evaluation result, the trajectory (consisting of several waypoints)
 is optimized with the goal to increase overal visibility score.
