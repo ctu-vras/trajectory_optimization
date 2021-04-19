@@ -27,14 +27,16 @@ def quat_wxyz_to_xyzw(quat):
 
 if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
+
     # Load the point cloud and initial trajectory to optimize
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu")
+
     # Set paths
-    index = 3
+    index = 10
     # index = np.random.choice(range(0, 30))
     print(f"Sequence number: {index}")
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
@@ -44,9 +46,11 @@ if __name__ == "__main__":
     if pts_np.shape[1] > pts_np.shape[0]:
         pts_np = pts_np.transpose()
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
+
     # positions: (x, y, z) for each waypoint
     poses_filename = os.path.join(FE_PATH, f"data/paths/path_poses_{index}.npz")
     poses_0 = np.load(poses_filename)['poses'].tolist()
+
     # orientations: quaternion for each waypoint
     # xyzw = [0., 0., 0., 1.]
     xyzw = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
@@ -59,12 +63,13 @@ if __name__ == "__main__":
     model = ModelTraj(points=points,
                       wps_poses=poses_0,
                       wps_quats=quats_0,
-                      smoothness_weight=10.0, traj_length_weight=0.005).to(device)
+                      smoothness_weight=20.0, traj_length_weight=0.01).to(device)
+
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     optimizer = torch.optim.Adam([
-        {'params': list([model.poses]), 'lr': 0.2},
-        {'params': list([model.quats]), 'lr': 5.0},
+        {'params': list([model.poses]), 'lr': 0.1},
+        {'params': list([model.quats]), 'lr': 0.0},
     ])
 
     # Run optimization loop

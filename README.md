@@ -47,7 +47,7 @@ In this example, the points color encodes a distance-based (to camera frame) rew
 The white points are currently observed ones by camera.
 
 ```bash
-roslaunch trajectory_optimization cam_position_opt.launch
+roslaunch trajectory_optimization pose_optimization.launch
 ```
 
 ### Camera Waypoints Optimization
@@ -73,7 +73,7 @@ Based on the evaluation result, the trajectory (consisting of several waypoints)
 is optimized with the goal to increase overal visibility score.
 
 ```bash
-roslaunch trajectory_optimization cam_traj_opt.launch
+roslaunch trajectory_optimization trajecory_optimization.launch
 ```
 
 ## Examples

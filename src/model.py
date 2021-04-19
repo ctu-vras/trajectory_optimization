@@ -5,6 +5,7 @@ from pytorch3d.transforms import quaternion_invert, quaternion_apply
 from tools import load_intrinsics, hidden_pts_removal
 import torch.nn.functional as F
 from copy import deepcopy
+from time import time
 
 
 # Helper functions
@@ -77,19 +78,15 @@ class ModelPose(nn.Module):
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         self.dist_rewards = {'mean': dist_rewards_mean, 'sigma': dist_rewards_sigma}
 
-    def log_odds_conversion(self, p):
-        # apply log odds conversion for global voxel map observations update
-        p = torch.clip(p, 0.5, 1 - self.eps)
-        lo = torch.log(p / (1 - p))
-        self.lo_sum += lo
-        rewards = 1 / (1 + torch.exp(-self.lo_sum))
-        return rewards
-
-    def forward(self, hpr=False):
+    def forward(self, hpr=False, debug=False):
         # transform points to camera frame
+        t0 = time()
         verts = to_camera_frame(self.points, self.quat, self.trans)
+        if debug:
+            print(f'\nPoint cloud transformation took: {1000*(time() - t0)} msec')
 
         # get masks of points that are inside of the camera FOV
+        t1 = time()
         dist_mask = get_dist_mask(torch.transpose(verts, 0, 1), self.pc_clip_limits[0], self.pc_clip_limits[1])
         fov_mask = get_fov_mask(torch.transpose(verts, 0, 1), self.height, self.width, self.K.squeeze(0))
 
@@ -99,12 +96,23 @@ class ModelPose(nn.Module):
             mask = torch.logical_and(occlusion_mask, torch.logical_and(dist_mask, fov_mask))
         else:
             mask = torch.logical_and(dist_mask, fov_mask)
+        if debug:
+            print(f'Masks computation took: {1000 * (time() - t1)} msec')
 
+        t2 = time()
         self.observations = visiblity_estimation(verts,
                                                  self.dist_rewards['mean'],
-                                                 self.dist_rewards['sigma']) * mask
-        self.rewards = self.log_odds_conversion(self.observations)  # total trajectory observations
+                                                 self.dist_rewards['sigma'])
+        # TODO: replace mask addition (+) on smth more sophisticated (Gaussian weights)
+        # do not use multiplication (*) on binary mask as it zeros out the gradients
+        self.observations = self.observations + torch.mean(self.observations) * mask
+        if debug:
+            print(f'Visibility estimation took: {1000 * (time() - t2)} msec')
+
+        t3 = time()
         loss = self.criterion(self.observations)
+        if debug:
+            print(f'Loss calculation took: {1000 * (time() - t3)} msec \n')
         return verts[mask, :], loss
 
     def criterion(self, observations):
@@ -197,7 +205,8 @@ class ModelTraj(nn.Module):
 
             p = visiblity_estimation(verts,
                                      self.dist_rewards['mean'],
-                                     self.dist_rewards['sigma']) * mask  # local observations reward (visibility)
+                                     self.dist_rewards['sigma'])  # local observations reward (visibility)
+            p = p + torch.mean(p) * mask
 
             # apply log odds conversion for global voxel map observations update
             p = torch.clip(p, 0.5, 1.0 - self.eps)

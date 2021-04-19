@@ -1,4 +1,6 @@
-## Installation (tested with Ubuntu 18.04)
+# Installation
+
+## Locally (tested with Ubuntu 18.04)
 
 Clone the package and dependencies to ROS workspace:
 ```bash
@@ -30,4 +32,20 @@ catkin config -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/dl/bin/python3  \
 catkin build trajectory_optimization
 
 source ~/catkin_ws/devel/setup.bash
+```
+
+## [Singularity](https://singularity.lbl.gov/)
+
+Please, download the prebuilt writable singularity image from
+[https://drive.google.com/drive/folders/1oOvIDpldfv30HqijHu1xupgO8EdTED6K?usp=sharing](https://drive.google.com/drive/folders/1oOvIDpldfv30HqijHu1xupgO8EdTED6K?usp=sharing)
+
+Run the image mounting your catkin workspace with the package:
+```bash
+sudo singularity shell -w --nv --bind $HOME/trajopt_ws/:/root/catkin_ws trajopt/
+```
+
+From the singularity container execute:
+```bash
+source /root/.bashrc
+roslaunch trajectory_optimization trajecory_optimization.launch
 ```
