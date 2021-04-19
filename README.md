@@ -73,7 +73,7 @@ Based on the evaluation result, the trajectory (consisting of several waypoints)
 is optimized with the goal to increase overal visibility score.
 
 ```bash
-roslaunch trajectory_optimization trajecory_optimization.launch
+roslaunch trajectory_optimization trajectory_optimization.launch
 ```
 
 ## Examples

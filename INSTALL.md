@@ -47,5 +47,5 @@ sudo singularity shell -w --nv --bind $HOME/trajopt_ws/:/root/catkin_ws trajopt/
 From the singularity container execute:
 ```bash
 source /root/.bashrc
-roslaunch trajectory_optimization trajecory_optimization.launch
+roslaunch trajectory_optimization trajectory_optimization.launch
 ```

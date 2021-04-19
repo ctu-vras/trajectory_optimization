@@ -25,20 +25,28 @@ from tools import publish_camera_info
 from tools import publish_image
 
 
+## Get parameters values
+pub_sample = rospy.get_param('traj_opt/pub_sample', 10)
+N_steps = rospy.get_param('traj_opt/opt_steps', 400)
+lr_pose = rospy.get_param('traj_opt/lr_pose', 0.1)
+lr_quat = rospy.get_param('traj_opt/lr_quat', 0.0)
+
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    torch.cuda.set_device(device)
+else:
+    device = torch.device("cpu")
+
+
 if __name__ == "__main__":
     rospy.init_node('camera_pose_optimization')
     # Load point cloud
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        torch.cuda.set_device(device)
-    else:
-        device = torch.device("cpu")
 
     # Initialize camera parameters
     K, img_width, img_height = load_intrinsics(device=device)
 
     # Set paths to data
-    index = 10
+    index = 90
     # index = np.random.choice(range(0, 98))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']
@@ -59,24 +67,24 @@ if __name__ == "__main__":
     model = ModelPose(points=points,
                       trans0=trans0,
                       q0=q0,
-                      min_dist=1.0, max_dist=5.0).to(device)
+                      min_dist=1.0, max_dist=5.0,
+                      device=device).to(device)
 
     # Create an optimizer. Here we are using Adam and we pass in the parameters of the model
     optimizer = torch.optim.Adam([
-        {'params': list([model.trans]), 'lr': 0.01},
-        {'params': list([model.quat]), 'lr': 1.0},
+        {'params': list([model.trans]), 'lr': lr_pose},
+        {'params': list([model.quat]), 'lr': lr_quat},
     ])
 
     # Run optimization loop
     debug = False
     t_step = 0.0
     t_pub = 0.0
-    N_steps = 500
-    pub_sample = 10
     for i in tqdm(range(N_steps)):
         if rospy.is_shutdown():
             break
 
+        ## Optimization step
         t0 = time()
         optimizer.zero_grad()
         points_visible, loss = model(debug=debug)
@@ -85,12 +93,11 @@ if __name__ == "__main__":
 
         t_step += (time() - t0) / N_steps
 
-        debug = False
-
         ## Data publication
+        debug = False
         if i % pub_sample == 0:
-            t1 = time()
-            # debug = True
+            t2 = time()
+            debug = True
 
             # render point cloud image
             if points_visible.size()[0] > 0:
@@ -108,6 +115,7 @@ if __name__ == "__main__":
             intensity = model.observations.unsqueeze(1).detach().cpu().numpy()
             pts_rewards = np.concatenate([pts_np, intensity],
                                          axis=1)  # add observations for pts intensity visualization
+            # pts_rewards = pts_np
             points_visible_np = points_visible.detach().cpu().numpy()
             publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(pts_rewards, '/pts', rospy.Time.now(), 'world')
@@ -118,7 +126,7 @@ if __name__ == "__main__":
             publish_tf_pose(trans, quat, "camera_frame", frame_id="world")
             publish_camera_info(topic_name="/camera/camera_info", frame_id="camera_frame")
 
-            t_pub += (time() - t1) / N_steps * pub_sample
+            t_pub += (time() - t2) / N_steps * pub_sample
 
     print(f'Mean optimization time: {1000 * t_step} msec')
     print(f'Mean publication time: {1000 * t_pub} msec')
