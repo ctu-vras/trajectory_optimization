@@ -64,7 +64,7 @@ class ModelPose(nn.Module):
                  points,
                  trans0=torch.tensor([[0., 0., 0.]]),  # t = (x, y, z)
                  q0=torch.tensor([[1., 0., 0., 0.]]),  # q = (w, x, y, z)
-                 min_dist=1.0, max_dist=10.0,
+                 min_dist=1.0, max_dist=5.0,
                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0,
                  device=torch.device('cuda')):
         super().__init__()
@@ -156,21 +156,22 @@ def mean_angle_calc(traj_wps, eps=1e-6):
 class ModelTraj(nn.Module):
     def __init__(self,
                  points: torch.tensor,
-                 wps_poses: list,  # [np.array([x0, y0, z0]), np.array([x1, y1, z1]), ...]
-                 wps_quats: torch.tensor,  # (N, 4)
-                 min_dist=1.0, max_dist=10.0,
+                 wps_poses: torch.tensor,  # (N, 3): [[x0, y0, z0], [x1, y1, z1], ...]
+                 wps_quats: torch.tensor,  # (N, 4): torch.tensor: [w, x, y, z]-format
+                 min_dist=1.0, max_dist=5.0,
                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0,
-                 smoothness_weight=1.0, traj_length_weight=0.005):
+                 smoothness_weight=14.0, traj_length_weight=0.02,
+                 device=torch.device('cuda')):
         super().__init__()
-        self.points = points
+        self.device = device
+        self.points = torch.as_tensor(points, dtype=torch.float32).to(self.device)
         self.rewards = None
         self.observations = None
-        self.device = points.device
         self.lo_sum = 0.0  # log odds sum for the entire point cloud for the whole trajectory
 
-        # Create an optimizable parameter for the x, y, z position of the camera.
-        self.poses0 = torch.from_numpy(np.array(wps_poses, dtype=np.float32)).to(self.device)  # (N, 3)
-        self.quats0 = wps_quats  # (N, 4) torch.tensor: [w, x, y, z]-format
+        # Create optimizable parameters for the poses and orients of the camera
+        self.poses0 = torch.as_tensor(wps_poses, dtype=torch.float32).to(self.device)  # (N, 3)
+        self.quats0 = torch.as_tensor(wps_quats, dtype=torch.float32).to(self.device)  # (N, 4)
 
         self.poses = nn.Parameter(deepcopy(self.poses0))
         self.quats = nn.Parameter(deepcopy(self.quats0))
