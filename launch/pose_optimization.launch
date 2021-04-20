@@ -16,7 +16,6 @@
           <param name="lr_quat" type="double" value="0.0" />
 
     </node>
-<!--     <node name="pose_optimization" pkg="trajectory_optimization" type="camera_pose_optimization_est.py" output="screen"/> -->
 
     <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
 </launch>

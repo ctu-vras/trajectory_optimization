@@ -6,8 +6,6 @@
 
     <param name="use_sim_time" value="false"/>
 
-<!--     <node name="traj_opt" pkg="trajectory_optimization" type="dwa_perception_aware.py" output="screen"/> -->
-
     <node name="traj_opt"
           pkg="trajectory_optimization"
           type="trajectory_optimization.py" output="screen">
@@ -20,8 +18,6 @@
           <param name="lr_quat" type="double" value="0.0" />
 
     </node>
-
-<!--     <node name="traj_opt" pkg="trajectory_optimization" type="camera_waypoints_optimization.py" output="screen"/> -->
 
     <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
 </launch>
