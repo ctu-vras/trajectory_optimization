@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-    <arg name="bag" default="$(find frontier_exploration)/data/bags/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
+    <arg name="bag" default="$(find trajectory_optimization)/data/bags/josef_2019-06-06-13-58-12_proc_0.1m.bag"/>
     <arg name="bag_rate" default="40.0"/>
     <arg name="rviz_config" default="josef"/>
 
@@ -10,6 +10,6 @@
     <node name="play" pkg="rosbag" type="play" output="screen"
           args="--clock -r $(arg bag_rate) -k $(arg bag)"/>
 
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find frontier_exploration)/config/$(arg rviz_config).rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
     <node if="0" name="rqt_tf_tree" pkg="rqt_tf_tree" type="rqt_tf_tree"/>
 </launch>

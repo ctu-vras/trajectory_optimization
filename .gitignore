@@ -1,8 +1,10 @@
+# cache
 *.pyc
 *.__pycache__
 *.bag
 *.ipynb_checkpoints
-*.npy
 
+# large files
 *.mp4
 data/
+.idea/

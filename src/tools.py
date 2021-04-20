@@ -1,20 +1,26 @@
 import numpy as np
 from scipy.spatial import ConvexHull
-import open3d as o3d
 import torch
+try:
+    import open3d as o3d
+except:
+    print("No Open3D installed")
 # Data structures and functions for rendering
-from pytorch3d.structures import Pointclouds
-from pytorch3d.renderer import (
-    look_at_view_transform,
-    FoVOrthographicCameras,
-    PointsRasterizationSettings,
-    PointsRenderer,
-    PulsarPointsRenderer,
-    PointsRasterizer,
-    AlphaCompositor,
-    NormWeightedCompositor,
-    PerspectiveCameras
-)
+try:
+    from pytorch3d.structures import Pointclouds
+    from pytorch3d.renderer import (
+        look_at_view_transform,
+        FoVOrthographicCameras,
+        PointsRasterizationSettings,
+        PointsRenderer,
+        PulsarPointsRenderer,
+        PointsRasterizer,
+        AlphaCompositor,
+        NormWeightedCompositor,
+        PerspectiveCameras
+    )
+except:
+    print("No pytorch3d installed")
 import rospy
 from cv_bridge import CvBridge
 import tf2_ros
@@ -285,12 +291,19 @@ def publish_pose(pose, orient, topic_name):
     pub.publish(msg)
 
 
-def publish_path(path_list, orient=[0,0,0,1], topic_name='/path', frame_id='world'):
+def publish_path(path_list, orient_list=None, topic_name='/path', frame_id='world'):
     path = Path()
-    for pose in path_list:
-        msg = to_pose_stamped(pose, orient, frame_id=frame_id)
-        path.header = msg.header
-        path.poses.append(msg)
+    if orient_list is None:
+        orient = [0, 0, 0, 1]  # [x, y, z, w] - format
+        for pose in path_list:
+            msg = to_pose_stamped(pose, orient, frame_id=frame_id)
+            path.header = msg.header
+            path.poses.append(msg)
+    else:
+        for pose, orient in zip(path_list, orient_list):
+            msg = to_pose_stamped(pose, orient, frame_id=frame_id)
+            path.header = msg.header
+            path.poses.append(msg)
     pub = rospy.Publisher(topic_name, Path, queue_size=1)
     pub.publish(path)
 
