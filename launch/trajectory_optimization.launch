@@ -10,11 +10,11 @@
           pkg="trajectory_optimization"
           type="trajectory_optimization.py" output="screen">
 
-          <param name="opt_steps" type="int" value="200" />
-          <param name="pub_sample" type="int" value="10" />
-          <param name="smooth_weight" type="double" value="14.0" />
+          <param name="opt_steps" type="int" value="30" />
+          <param name="pub_sample" type="int" value="1" />
+          <param name="smooth_weight" type="double" value="28.0" />
           <param name="length_weight" type="double" value="0.02" />
-          <param name="lr_pose" type="double" value="0.1" />
+          <param name="lr_pose" type="double" value="0.15" />
           <param name="lr_quat" type="double" value="0.0" />
 
     </node>

@@ -6,7 +6,6 @@ import os
 FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
-from pointcloud_utils import pointcloud2_to_xyz_array
 from model import ModelTraj
 import numpy as np
 from time import time
@@ -18,12 +17,15 @@ from nav_msgs.msg import Path
 import tf, tf2_ros
 import message_filters
 from tools import publish_path
+from tools import publish_pointcloud
+from pointcloud_utils import pointcloud2_to_xyz_array
 
 
 class TrajOpt:
     def __init__(self,
                  pc_topic='/final_cost_cloud',
-                 path_topic='/path',
+                 input_path_topic='/path',
+                 publish_rewards_cloud=False,
                  device=torch.device("cuda:0")
                  ):
         self.device = device
@@ -31,6 +33,7 @@ class TrajOpt:
         self.points = None
         self.path = {'poses': None, 'orients': None}
         self.path_frame = None
+        self.publish_rewards_cloud = publish_rewards_cloud
 
         ## Get trajectory optimization parameters values
         self.n_opt_steps = rospy.get_param('traj_opt/opt_steps', 10)
@@ -42,11 +45,11 @@ class TrajOpt:
         self.pc_topic = pc_topic
         print("Subscribing to " + self.pc_topic)
 
-        self.path_topic = path_topic
-        print("Subscribing to " + self.path_topic)
+        self.input_path_topic = input_path_topic
+        print("Subscribing to " + self.input_path_topic)
 
         points_sub = message_filters.Subscriber(self.pc_topic, PointCloud2)
-        path_sub = message_filters.Subscriber(self.path_topic, Path)
+        path_sub = message_filters.Subscriber(self.input_path_topic, Path)
 
         ts = message_filters.ApproximateTimeSynchronizer([points_sub, path_sub], 10, slop=0.5)
         ts.registerCallback(self.callback)
@@ -105,16 +108,30 @@ class TrajOpt:
             optimizer.step()
 
         # publish optimized path with positions and orientations
-        print('Publishing optimized path')
-        # self.pc_frame = pc_msg.header.frame_id  # map
         self.path_frame = path_msg.header.frame_id  # map
+        print(f'Publishing optimized path in frame {self.path_frame}')
         poses_to_pub = model.poses.detach()
         quats_to_pub = [self.quat_wxyz_to_xyzw(quat / torch.linalg.norm(quat)) for quat in model.quats.detach()]
-        publish_path(poses_to_pub, quats_to_pub, topic_name='/path/optimized', frame_id=self.path_frame)
+        publish_path(poses_to_pub, quats_to_pub,
+                     topic_name=self.input_path_topic+'/optimized',
+                     frame_id=self.path_frame)
+
+        if self.publish_rewards_cloud:
+            # publish colored point cloud for debugging
+            self.pc_frame = pc_msg.header.frame_id  # map
+            intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
+            # print(np.min(intensity), np.mean(intensity), np.max(intensity))
+            pts_np = self.points.cpu().numpy()
+            points = np.concatenate([pts_np, intensity], axis=1)  # add rewards for pts intensity visualization
+            publish_pointcloud(points,
+                               topic_name=self.pc_topic+'/rewards',
+                               stamp=rospy.Time.now(),
+                               frame_id=self.pc_frame)
 
 
 if __name__ == '__main__':
     rospy.init_node('trajopt_node')
     proc = TrajOpt(pc_topic=rospy.get_param('traj_opt/point_cloud_topic', '/final_cost_cloud'),
-                   path_topic=rospy.get_param('traj_opt/path_topic', '/path'))
+                   input_path_topic=rospy.get_param('traj_opt/input_path_topic', '/path'),
+                   publish_rewards_cloud=rospy.get_param('traj_opt/publish_rewards_cloud', False))
     rospy.spin()

@@ -35,7 +35,7 @@ def to_camera_frame(verts, quat, trans):
     return verts
 
 
-def gaussian(x, mu=3.0, sigma=100.0, normalize=False):
+def gaussian(x, mu=3.0, sigma=5.0, normalize=False):
     # https://en.wikipedia.org/wiki/Normal_distribution
     g = torch.exp(-0.5 * ((x - mu) / sigma) ** 2)
     if normalize:
@@ -43,7 +43,7 @@ def gaussian(x, mu=3.0, sigma=100.0, normalize=False):
     return g
 
 
-def visiblity_estimation(verts, mu, sigma, rewards_gain=50.0, mask=None):
+def visiblity_estimation(verts, mu, sigma, rewards_gain=250.0, mask=None):
     # compute observations based on distance of the surrounding points
     dists = torch.linalg.norm(verts, dim=1)
     rewards = gaussian(dists, mu, sigma)
@@ -159,7 +159,7 @@ class ModelTraj(nn.Module):
                  wps_poses: torch.tensor,  # (N, 3): [[x0, y0, z0], [x1, y1, z1], ...]
                  wps_quats: torch.tensor,  # (N, 4): torch.tensor: [w, x, y, z]-format
                  min_dist=1.0, max_dist=5.0,
-                 dist_rewards_mean=3.0, dist_rewards_sigma=2.0,
+                 dist_rewards_mean=3.0, dist_rewards_sigma=1.0,
                  smoothness_weight=14.0, traj_length_weight=0.02,
                  device=torch.device('cuda')):
         super().__init__()
@@ -220,6 +220,7 @@ class ModelTraj(nn.Module):
             p = torch.clip(p, 0.5, 1.0 - self.eps)
             lo = torch.log(p / (1.0 - p))
             lo_sum = lo_sum + lo
+
         if debug:
             print(f'Trajectory evaluation took {1000*(time() - t0)} msec')
 

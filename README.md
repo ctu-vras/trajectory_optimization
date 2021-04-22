@@ -1,8 +1,7 @@
 # Perception aware Trajectory Optimization
 
 Perception aware trajectory optimization based on point cloud visibility estimation in a camera frustum.
-The package is implemented as a ROS node with
-[examples](https://github.com/RuslanAgishev/trajectory_optimization/tree/master/notebooks) in jupyter-notebooks.
+The package is implemented as a ROS node.
 
 ## Installation
 
@@ -11,9 +10,7 @@ Please, follow installation instructions in
 
 ## Running
 
-### Point cloud Visibility Estimation
-
-<img src="./demos/hpr.gif">
+### [Point cloud Visibility Estimation](https://drive.google.com/file/d/1j3NtcWiOojq-NkHknruYHk_7x7LbtXsm/view?usp=sharing)
 
 Ones the package is installed, run the launch file and specify the bag file location:
 ```bash
@@ -30,17 +27,13 @@ The hidden points removal (HPR) algorithm implementation is based on the article
 The resultant point cloud rendering on an image plane is done with
 [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.
 
-### Multiple cameras:
-
-<img src="./demos/hpr_cams_01234.gif">
+### [Multiple cameras](https://drive.google.com/file/d/10ed_a7JW9E1fsrtesJ3F1FO1agKJ7EDH/view?usp=sharing):
 
 In this example, the point cloud visibility is estimated for each individual camera
 (in its field of view and the distance range) separately.
 The combined point cloud is then visualized in the robot `base_link` frame.
 
-### Camera Position Optimization
-
-<img src="./demos/cam_pose_opt.gif">
+### [Position Optimization](https://drive.google.com/file/d/1JBW1lwzy-bEU_I2unc25aM3VQTEpTEUE/view?usp=sharing)
 
 Ego-pose optimization based on the observed in camera frustum point cloud visibility estimation.
 In this example, the points color encodes a distance-based (to camera frame) reward.
@@ -50,24 +43,18 @@ The white points are currently observed ones by camera.
 roslaunch trajectory_optimization pose_optimization.launch
 ```
 
-### Camera Waypoints Optimization
-
-<img src="./demos/cam_wps_opt.gif">
+### [Waypoints Optimization](https://drive.google.com/file/d/1yLcElhswuukWD0RUEK6iLHhzcMxGoInF/view?usp=sharing)
 
 Camera pose (X, Y and Yaw) optimization is consequently applied here for each separate sampled way-point
 of an initial trajectory.
 
-### Camera Trajectory Evaluation
-
-<img src="./demos/cam_traj_eval.gif">
+### [Trajectory Evaluation](https://drive.google.com/file/d/1TkLRbUYYTPlkkFsKNxl3o1gNMVLIyEdf/view?usp=sharing)
 
 A camera trajectory could be evaluated by a number of observed voxels (points in the cloud).
 Single pose visibility estimation rewards are combined using log odds representation as it
 is done in [OctoMap](https://www.researchgate.net/publication/235008236_OctoMap_A_Probabilistic_Flexible_and_Compact_3D_Map_Representation_for_Robotic_Systems) paper.
 
-### Camera Trajectory Optimization
-
-<img src="./demos/cam_traj_opt.gif">
+### [Trajectory Optimization](https://drive.google.com/file/d/1M8qhfOlevQwYUBNZlvqMBp2cEoIcOqCL/view?usp=sharing)
 
 Based on the evaluation result, the trajectory (consisting of several waypoints)
 is optimized with the goal to increase overal visibility score.
@@ -75,18 +62,3 @@ is optimized with the goal to increase overal visibility score.
 ```bash
 roslaunch trajectory_optimization trajectory_optimization.launch
 ```
-
-## Examples
-
-The [./notebooks](https://github.com/RuslanAgishev/trajectory_optimization/tree/master/notebooks)
-folder contains the following examples:
-- [HPR](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/hidden_points_removal.ipynb):
-    hidden points removal example with different input point clouds as well as from different camera poses.
-- Camera position Optimization,
-[in 2D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/camera_pose_optimization_2d.ipynb),
-[in 3D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/camera_pose_optimization_3d.ipynb):
-    camera position optimization loop based on the point cloud visibility estimation.
-- [HPR, Open3D](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/open3d.ipynb):
-    hidden points removal with [Open3D](http://www.open3d.org/html/tutorial/Basic/pointcloud.html#Hidden-point-removal) library.
-- [Point cloud Rendering on Image plane](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/notebooks/pytorch3d.ipynb):
-    point cloud hidden points removal with Open3D and rendering on an image plane with [pytorch3d](https://github.com/facebookresearch/pytorch3d) library.

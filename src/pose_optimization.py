@@ -26,10 +26,10 @@ from tools import publish_image
 
 
 ## Get parameters values
-pub_sample = rospy.get_param('traj_opt/pub_sample', 10)
-N_steps = rospy.get_param('traj_opt/opt_steps', 400)
-lr_pose = rospy.get_param('traj_opt/lr_pose', 0.1)
-lr_quat = rospy.get_param('traj_opt/lr_quat', 0.0)
+pub_sample = rospy.get_param('pose_opt/pub_sample', 10)
+N_steps = rospy.get_param('pose_opt/opt_steps', 400)
+lr_pose = rospy.get_param('pose_opt/lr_pose', 0.1)
+lr_quat = rospy.get_param('pose_opt/lr_quat', 0.0)
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -75,6 +75,8 @@ if __name__ == "__main__":
         {'params': list([model.trans]), 'lr': lr_pose},
         {'params': list([model.quat]), 'lr': lr_quat},
     ])
+    decayRate = 0.95
+    lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
     # Run optimization loop
     debug = False
@@ -90,6 +92,8 @@ if __name__ == "__main__":
         points_visible, loss = model(debug=debug)
         loss.backward()
         optimizer.step()
+        if i % int(N_steps//10) == 0:
+            lr_scheduler.step()
 
         t_step += (time() - t0) / N_steps
 

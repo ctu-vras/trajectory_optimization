@@ -6,13 +6,13 @@
 
     <param name="use_sim_time" value="false"/>
 
-    <node name="pose_optimization"
+    <node name="pose_opt"
           pkg="trajectory_optimization"
           type="pose_optimization.py" output="screen">
 
-          <param name="opt_steps" type="int" value="100" />
-          <param name="pub_sample" type="int" value="10" />
-          <param name="lr_pose" type="double" value="0.01" />
+          <param name="opt_steps" type="int" value="30" />
+          <param name="pub_sample" type="int" value="1" />
+          <param name="lr_pose" type="double" value="5.0" />
           <param name="lr_quat" type="double" value="0.0" />
 
     </node>

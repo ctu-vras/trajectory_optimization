@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 from pytorch3d.transforms import random_quaternions
 import numpy as np
+# import matplotlib.pyplot as plt
 from model import ModelTraj
 from time import time
 # ROS libraries
@@ -66,7 +67,8 @@ if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
 
     # Load the point cloud and initial trajectory to optimize
-    pts_np, poses_np, quats_wxyz_np = load_data()
+    index = 10  # None - for random
+    pts_np, poses_np, quats_wxyz_np = load_data(index=index)
 
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
     poses_0 = torch.from_numpy(poses_np).float().to(device)
@@ -83,6 +85,8 @@ if __name__ == "__main__":
         {'params': list([model.poses]), 'lr': lr_pose},
         {'params': list([model.quats]), 'lr': lr_quat},
     ])
+    decayRate = 1.0
+    lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
     ## Run optimization loop
     FIRST_RECORD = True
@@ -101,22 +105,24 @@ if __name__ == "__main__":
         t1 = time()
         loss.backward()
         optimizer.step()
+        if i % int(N_steps // 10) == 0:
+            lr_scheduler.step()
 
         debug = False
         t_step += (time() - t0) / N_steps
 
-        ## Data publishing
+        ## Data publishing, debugging and visualization
         if i % pub_sample == 0:
             t2 = time()
             # debug = True
             # if debug:
             #     print(f'Gradient backprop took: {1000 * (time() - t1)} msec')
-            # for key in model.loss:
-            #     print(f"{key} loss: {model.loss[key]}")
-            # if FIRST_RECORD:
-            #     reward0 = torch.mean(model.rewards)
-            #     FIRST_RECORD = False
-            # print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
+            for key in model.loss:
+                print(f"{key} loss: {model.loss[key]}")
+            if FIRST_RECORD:
+                reward0 = torch.mean(model.rewards)
+                FIRST_RECORD = False
+            print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
 
             # publish ROS msgs
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
