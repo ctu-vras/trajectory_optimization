@@ -41,11 +41,21 @@ Please, download the prebuilt writable singularity image from
 
 Run the image mounting your catkin workspace with the package:
 ```bash
-sudo singularity shell -w --nv --bind $HOME/trajopt_ws/:/root/catkin_ws trajopt/
+singularity shell --nv --bind $HOME/trajopt_ws/src/trajectory_optimization:/opt/ros/catkin_ws/src/trajectory_optimization traj_opt.img
 ```
 
 From the singularity container execute:
 ```bash
-source /root/.bashrc
-roslaunch trajectory_optimization trajectory_optimization.launch
+source /opt/entrypoint.sh
+roslaunch trajectory_optimization trajectory_optimization.launch rviz:=true
+```
+
+### [Building Singularity image](https://singularity.lbl.gov/docs-build-container)
+
+If you would like to build a singularity image yourself,
+please do the following:
+
+```bash
+cd ./singularity
+sudo singularity build trajopt_sandbox/ traj-opt-recipe.txt
 ```

@@ -1,0 +1,60 @@
+Bootstrap: docker
+From: ros:melodic-robot
+
+%help
+    The Robot Operating System (ROS) is a set of software libraries and tools that help you build robot applications. From drivers to state-of-the-art algorithms, and with powerful developer tools, ROS has what you need for your next robotics project. And itâ€™s all open source.
+
+%environment
+    export LC_ALL=C
+
+%post
+	packages="
+	ros-melodic-desktop-full
+	ros-melodic-jsk-rviz-plugins
+	python-rosinstall
+	python-rosinstall-generator
+	python-wstool
+	build-essential
+	python-catkin-tools
+	python3-pip
+    nano
+    git
+    tmux
+    wget"
+
+    apt-get -y update && apt-get -y install $packages
+    echo "Installed ROS"
+
+    mkdir -p /opt/ros/catkin_ws/src && cd /opt/ros/catkin_ws/src && \
+    git clone https://gitlab.fel.cvut.cz/agishrus/trajectory_optimization.git
+    mkdir -p /opt/ros/catkin_ws/src/thirdparty/ && cd /opt/ros/catkin_ws/src/thirdparty/ && \
+    git clone -b melodic-devel https://github.com/ros/geometry2 && \
+	git clone -b melodic-devel https://github.com/ros/geometry && \
+	git clone -b melodic https://github.com/ros-perception/vision_opencv
+
+	pip3 install virtualenv
+
+    cd /opt/ && virtualenv -p /usr/bin/python3 venv
+    /bin/bash -c "source /opt/venv/bin/activate && \
+				  pip install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html && \
+				  pip install pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py36_cu101_pyt171/download.html && \
+				  pip install scikit-image matplotlib imageio plotly opencv-python catkin_pkg empy rospkg"
+
+    echo "Installed python dependencies"
+
+    cd /opt/ros/catkin_ws && rosdep install --from-paths src --ignore-src -y -r && \
+    /bin/bash -c "source /opt/ros/melodic/setup.bash && \
+ 				  catkin config -DPYTHON_EXECUTABLE=/opt/venv/bin/python && \
+ 				  catkin build"
+
+ 	echo "Built ROS workspace"
+
+%setup
+	touch /usr/bin/nvidia-smi
+
+%runscript
+    /bin/bash -c "source /opt/ros/melodic/setup.bash && \
+    			  source /opt/ros/catkin_ws/devel/setup.bash && \
+    			  source /opt/venv/bin/activate && \
+    			  roslaunch trajectory_optimization trajectory_optimization.launch rviz:=true"
+    			  
