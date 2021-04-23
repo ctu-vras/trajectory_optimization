@@ -17,6 +17,7 @@ From: ros:melodic-robot
 	build-essential
 	python-catkin-tools
 	python3-pip
+	python3-tk
     nano
     git
     tmux
@@ -38,7 +39,7 @@ From: ros:melodic-robot
     /bin/bash -c "source /opt/venv/bin/activate && \
 				  pip install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html && \
 				  pip install pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py36_cu101_pyt171/download.html && \
-				  pip install scikit-image matplotlib imageio plotly opencv-python catkin_pkg empy rospkg"
+				  pip install open3d scikit-image matplotlib imageio plotly opencv-python catkin_pkg empy rospkg"
 
     echo "Installed python dependencies"
 

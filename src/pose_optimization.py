@@ -67,6 +67,8 @@ if __name__ == "__main__":
     model = ModelPose(points=points,
                       trans0=trans0,
                       q0=q0,
+                      intrins=K,
+                      img_width=img_width, img_height=img_height,
                       min_dist=1.0, max_dist=5.0,
                       device=device).to(device)
 

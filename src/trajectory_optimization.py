@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import ctypes
-libgcc_s = ctypes.CDLL('libgcc_s.so.1')
+# libgcc_s = ctypes.CDLL('libgcc_s.so.1')
 import sys
 import os
 import rospkg
@@ -11,7 +11,7 @@ import torch
 from tqdm import tqdm
 from pytorch3d.transforms import random_quaternions
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from model import ModelTraj
 from time import time
 # ROS libraries
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
 
     # Load the point cloud and initial trajectory to optimize
-    index = 10  # None - for random
+    index = 3  # np.random.choice(range(0, 15))  # 0-98 or None - for random
     pts_np, poses_np, quats_wxyz_np = load_data(index=index)
 
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
@@ -81,22 +81,32 @@ if __name__ == "__main__":
                       smoothness_weight=smooth_weight, traj_length_weight=length_weight).to(device)
 
     # Create an optimizer. Here we are using Adam and pass in the parameters of the model
+    decayRate = 0.9  # decayRate = 0.9, lr_pose = 0.15
     optimizer = torch.optim.Adam([
         {'params': list([model.poses]), 'lr': lr_pose},
         {'params': list([model.quats]), 'lr': lr_quat},
     ])
-    decayRate = 1.0
     lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
     ## Run optimization loop
     FIRST_RECORD = True
     reward0 = None
+    smooth_loss0 = None
+    OPTIMIZATION_COMPLETE = False
+    N_optimal = N_steps
+    REWARDS_TH = 1.01
+    SMOOTHNESS_TH = 0.9
 
     t_step = 0.0
     t_pub = 0.0
     debug = True
+    fig = plt.figure(figsize=(16, 8))
+    plt.grid()
+    log = {'visibility': [],
+           'smoothness': []}
     for i in tqdm(range(N_steps)):
         if rospy.is_shutdown():
+            plt.close('all')
             break
         # Optimization step
         t0 = time()
@@ -117,12 +127,44 @@ if __name__ == "__main__":
             # debug = True
             # if debug:
             #     print(f'Gradient backprop took: {1000 * (time() - t1)} msec')
-            for key in model.loss:
-                print(f"{key} loss: {model.loss[key]}")
+            # for key in model.loss:
+            #     print(f"{key} loss: {model.loss[key]}")
             if FIRST_RECORD:
                 reward0 = torch.mean(model.rewards)
+                smooth_loss0 = model.loss['smooth']
                 FIRST_RECORD = False
-            print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
+            # print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
+
+            log['visibility'].append(torch.mean(model.rewards) / reward0)
+            log['smoothness'].append(smooth_loss0 / model.loss['smooth'])
+            plt.cla()
+            plt.subplot(1,2,1)
+            # plt.grid()
+            plt.title('Visibility reward gain: R / R0')
+            plt.ylabel('R / R0')
+            plt.xlabel('opt steps')
+            plt.plot(log['visibility'], color='b')
+            if OPTIMIZATION_COMPLETE:
+                plt.axvline(N_optimal, 0, 1)
+
+            plt.subplot(1,2,2)
+            # plt.grid()
+            plt.title('Trajectory smoothness')
+            plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
+            plt.xlabel('opt steps')
+            plt.plot(log['smoothness'], color='b')
+            if OPTIMIZATION_COMPLETE:
+                plt.axvline(N_optimal, 0, 1)
+
+            plt.pause(0.01)
+            plt.draw()
+
+            if not OPTIMIZATION_COMPLETE and \
+                   log['visibility'][-1] > REWARDS_TH and \
+                   log['smoothness'][-1] > SMOOTHNESS_TH:
+                OPTIMIZATION_COMPLETE = True
+                N_optimal = i
+                print(f'Found optimal trajectory after {N_optimal} steps')
 
             # publish ROS msgs
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()

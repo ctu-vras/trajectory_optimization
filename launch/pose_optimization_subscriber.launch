@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="rviz_config" default="pose_opt"/>
+    <arg name="rviz" default="true"/>
+    <arg name="point_cloud_topic" default="/pts" />
+    <arg name="filterred_point_cloud_topic" default="/pts/filterred" />
+    <arg name="pose_topic" default="/pose" />
+    <arg name="output_pose_topic" default="/pose/optimized" />
+    <arg name="rate" default="0.5" />
+
+    <!-- point cloud publisher -->
+    <node name="pc_publisher" pkg="trajectory_optimization" type="pc_publisher.py">
+        <param name="output_topic" type="string" value="$(arg point_cloud_topic)" />
+        <param name="rate" type="double" value="$(arg rate)" />
+    </node>
+    <!-- pose publisher -->
+    <node name="pose_publisher" pkg="trajectory_optimization" type="pose_publisher.py">
+        <param name="output_topic" type="string" value="$(arg pose_topic)" />
+        <param name="rate" type="double" value="$(arg rate)" />
+    </node>
+
+    <!-- voxels filterring -->
+    <include file="$(find trajectory_optimization)/launch/voxels_filterring.launch">
+        <arg name="input_point_cloud_topic" value="$(arg point_cloud_topic)" />
+        <arg name="output_point_cloud_topic" value="$(arg filterred_point_cloud_topic)" />
+    </include>
+
+
+    <!-- pose optimization node -->
+    <node name="pose_opt"
+          pkg="trajectory_optimization"
+          type="pose_optimization_sub.py" output="screen">
+
+<!--           <param name="point_cloud_topic" type="string" value="$(arg point_cloud_topic)" /> -->
+          <param name="point_cloud_topic" type="string" value="$(arg filterred_point_cloud_topic)" />
+          <param name="pose_topic" type="string" value="$(arg pose_topic)" />
+          <param name="rate" type="double" value="$(arg rate)" />
+          <rosparam>
+              opt_steps: 100
+              lr_pose: 0.1
+              lr_quat: 0.0
+          </rosparam>
+    </node>
+
+    <!-- rviz -->
+    <node if="$(arg rviz)"
+          name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
+</launch>

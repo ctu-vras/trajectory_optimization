@@ -267,10 +267,12 @@ def publish_camera_info(image_width=1232, image_height=1616,
     pub.publish(camera_info_msg)
 
 
-def to_pose_stamped(pose, orient, frame_id='world'):
+def to_pose_stamped(pose, orient, stamp=None, frame_id='world'):
     msg = PoseStamped()
     msg.header.seq = 0
-    msg.header.stamp = rospy.Time.now()
+    if stamp is None:
+        stamp = rospy.Time.now()
+    msg.header.stamp = stamp
     msg.header.frame_id = frame_id
     msg.pose.position.x = pose[0]
     msg.pose.position.y = pose[1]
@@ -285,8 +287,8 @@ def to_pose_stamped(pose, orient, frame_id='world'):
     return msg
 
 
-def publish_pose(pose, orient, topic_name):
-    msg = to_pose_stamped(pose, orient)
+def publish_pose(pose, orient, topic_name, stamp=None, frame_id='world'):
+    msg = to_pose_stamped(pose, orient, stamp=stamp, frame_id=frame_id)
     pub = rospy.Publisher(topic_name, PoseStamped, queue_size=1)
     pub.publish(msg)
 

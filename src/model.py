@@ -10,6 +10,7 @@ from time import time
 
 # Helper functions
 def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
+    # TODO: replace booilng operations > and < on differentiable variants
     # clip points between MIN_DIST and MAX_DIST meters distance from the camera
     # points.size() = N x 3
     dist_mask = (points[:, 2] > min_dist) & (points[:, 2] < max_dist)
@@ -17,6 +18,7 @@ def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
 
 
 def get_fov_mask(points, img_height, img_width, intrins):
+    # TODO: replace booilng operations > and < on differentiable variants
     # find points that are observed by the camera (in its FOV)
     # points.size() = N x 3
     pts_homo = torch.matmul(intrins[:3, :3], torch.transpose(points, 0, 1))
@@ -62,8 +64,10 @@ Model for a single pose optimization
 class ModelPose(nn.Module):
     def __init__(self,
                  points,
-                 trans0=torch.tensor([[0., 0., 0.]]),  # t = (x, y, z)
-                 q0=torch.tensor([[1., 0., 0., 0.]]),  # q = (w, x, y, z)
+                 trans0,  # t = (x, y, z), example: torch.tensor([[0., 0., 0.]])
+                 q0,  # q = (w, x, y, z), example: torch.tensor([[1., 0., 0., 0.]])
+                 intrins,  # torch.tensor, size=(4,4)
+                 img_width, img_height,
                  min_dist=1.0, max_dist=5.0,
                  dist_rewards_mean=3.0, dist_rewards_sigma=2.0,
                  device=torch.device('cuda')):
@@ -80,7 +84,8 @@ class ModelPose(nn.Module):
         quat = torch.as_tensor(q0, dtype=torch.float32).to(self.device)
         self.quat = nn.Parameter(quat)
 
-        self.K, self.width, self.height = load_intrinsics(device=self.device)
+        self.K = torch.as_tensor(intrins, dtype=torch.float32).to(self.device)
+        self.width, self.height = float(img_width), float(img_height)
         self.eps = 1e-6
         self.pc_clip_limits = [min_dist, max_dist]  # [m]
         self.dist_rewards = {'mean': dist_rewards_mean, 'sigma': dist_rewards_sigma}
@@ -196,6 +201,7 @@ class ModelTraj(nn.Module):
         t0 = time()
         N_wps = len(self.poses)
         lo_sum = 0.0
+        # TODO: replace for loop with tensors operations in order not to calculate rewards consequently for waypoints
         for i in range(N_wps):
             # transform points to camera frame
             verts = to_camera_frame(self.points, self.quats[i].unsqueeze(0), self.poses[i].unsqueeze(0))
