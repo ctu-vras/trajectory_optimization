@@ -3,19 +3,64 @@
 <launch>
     <arg name="rviz_config" default="pose_opt"/>
     <arg name="rviz" default="true"/>
+    <arg name="point_cloud_topic" default="/pts" />
+    <arg name="filtered_point_cloud_topic" default="/pts/filtered" />
+    <arg name="filter_input_point_cloud" default="true" />
+    <arg name="pose_topic" default="/pose" />
+    <arg name="rate" default="0.5" />
 
-    <param name="use_sim_time" value="false"/>
+    <!-- point cloud publisher -->
+    <node name="pc_publisher" pkg="trajectory_optimization" type="pc_publisher.py">
+        <param name="output_topic" type="string" value="$(arg point_cloud_topic)" />
+        <param name="rate" type="double" value="$(arg rate)" />
+    </node>
+    <!-- pose publisher -->
+    <node name="pose_publisher" pkg="trajectory_optimization" type="pose_publisher.py" output="screen">
+        <param name="output_topic" type="string" value="$(arg pose_topic)" />
+        <param name="rate" type="double" value="$(arg rate)" />
+        <rosparam>
+              x: 9.0
+              y: 2.0
+              z: 0.0
+              roll: 0.0
+              pitch: 0.0
+              yaw: 0.0
+          </rosparam>
+    </node>
 
+    <!-- voxels filtering -->
+    <include if="$(arg filter_input_point_cloud)"
+             file="$(find trajectory_optimization)/launch/voxels_filtering.launch">
+        <arg name="input_point_cloud_topic" value="$(arg point_cloud_topic)" />
+        <arg name="output_point_cloud_topic" value="$(arg filtered_point_cloud_topic)" />
+    </include>
+
+
+    <!-- pose optimization node -->
     <node name="pose_opt"
           pkg="trajectory_optimization"
           type="pose_optimization.py" output="screen">
 
-          <param name="opt_steps" type="int" value="30" />
-          <param name="pub_sample" type="int" value="1" />
-          <param name="lr_pose" type="double" value="1.0" />
-          <param name="lr_quat" type="double" value="0.0" />
+          <param name="point_cloud_topic"
+                 type="string"
+                 value="$(arg point_cloud_topic)"
+                 unless="$(eval filter_input_point_cloud==true)"/>
 
+          <param name="point_cloud_topic"
+                 type="string"
+                 value="$(arg filtered_point_cloud_topic)"
+                 unless="$(eval filter_input_point_cloud==false)"/>
+          <param name="pose_topic" type="string" value="$(arg pose_topic)" />
+          <param name="rate" type="double" value="$(arg rate)" />
+          <rosparam>
+              opt_steps: 100
+              lr_pose: 0.1
+              lr_quat: 0.0
+          </rosparam>
     </node>
 
-    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
+    <!-- rviz -->
+    <node if="$(arg rviz)"
+          name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
 </launch>

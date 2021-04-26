@@ -1,6 +1,9 @@
 <launch>
   <arg name="input_point_cloud_topic" default="/pts" />
-  <arg name="output_point_cloud_topic" default="/pts/filterred" />
+  <arg name="output_point_cloud_topic" default="/pts/filtered" />
+  <arg name="filter_limit_min" default="-2.5" />
+  <arg name="filter_limit_max" default="2.5" />
+  <arg name="leaf_size" default="0.1" />
 
   <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
 
@@ -10,10 +13,10 @@
     <remap from="~output" to="$(arg output_point_cloud_topic)"/>
     <rosparam>
       filter_field_name: z
-      filter_limit_min: -1.0
-      filter_limit_max: 2.5
       filter_limit_negative: False
-      leaf_size: 0.2
     </rosparam>
+    <param name="filter_limit_min" type="double" value="$(arg filter_limit_min)" />
+    <param name="filter_limit_max" type="double" value="$(arg filter_limit_max)" />
+    <param name="leaf_size" type="double" value="$(arg leaf_size)" />
   </node>
 </launch>

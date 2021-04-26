@@ -10,7 +10,7 @@ from time import time
 
 # Helper functions
 def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
-    # TODO: replace booilng operations > and < on differentiable variants
+    # TODO: replace booling operations > and < on differentiable variants
     # clip points between MIN_DIST and MAX_DIST meters distance from the camera
     # points.size() = N x 3
     dist_mask = (points[:, 2] > min_dist) & (points[:, 2] < max_dist)
@@ -18,7 +18,7 @@ def get_dist_mask(points, min_dist=1.0, max_dist=5.0):
 
 
 def get_fov_mask(points, img_height, img_width, intrins):
-    # TODO: replace booilng operations > and < on differentiable variants
+    # TODO: replace booling operations > and < on differentiable variants
     # find points that are observed by the camera (in its FOV)
     # points.size() = N x 3
     pts_homo = torch.matmul(intrins[:3, :3], torch.transpose(points, 0, 1))
@@ -96,6 +96,7 @@ class ModelPose(nn.Module):
         verts = to_camera_frame(self.points, self.quat, self.trans)
         if debug:
             print(f'\nPoint cloud transformation took: {1000*(time() - t0)} msec')
+            print(f'Point cloud size {self.points.size()}')
 
         # get masks of points that are inside of the camera FOV
         t1 = time()

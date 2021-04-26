@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="rviz_config" default="pose_opt"/>
+    <arg name="rviz" default="true"/>
+
+    <param name="use_sim_time" value="false"/>
+
+    <node name="pose_opt"
+          pkg="trajectory_optimization"
+          type="pose_optimization_sample.py" output="screen">
+
+          <param name="opt_steps" type="int" value="30" />
+          <param name="pub_sample" type="int" value="1" />
+          <param name="lr_pose" type="double" value="1.0" />
+          <param name="lr_quat" type="double" value="0.0" />
+
+    </node>
+
+    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
+</launch>

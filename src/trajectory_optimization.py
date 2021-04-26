@@ -1,185 +1,143 @@
 #!/usr/bin/env python
 
-import ctypes
-# libgcc_s = ctypes.CDLL('libgcc_s.so.1')
 import sys
-import os
 import rospkg
+import os
 FE_PATH = rospkg.RosPack().get_path('trajectory_optimization')
 sys.path.append(os.path.join(FE_PATH, 'src/'))
 import torch
-from tqdm import tqdm
-from pytorch3d.transforms import random_quaternions
-import numpy as np
-import matplotlib.pyplot as plt
 from model import ModelTraj
+import numpy as np
 from time import time
-# ROS libraries
+from tqdm import tqdm
+# ROS libs
 import rospy
-import tf
-from tools import publish_pointcloud
+from sensor_msgs.msg import PointCloud2
+from nav_msgs.msg import Path
+import tf, tf2_ros
+import message_filters
 from tools import publish_path
+from tools import publish_pointcloud
+from pointcloud_utils import pointcloud2_to_xyz_array
 
 
-def quat_wxyz_to_xyzw(quat):
-    return torch.tensor([quat[1], quat[2], quat[3], quat[0]], device=quat.device)
+class TrajOpt:
+    def __init__(self,
+                 pc_topic='/final_cost_cloud',
+                 input_path_topic='/path',
+                 publish_rewards_cloud=False,
+                 device=torch.device("cuda:0")
+                 ):
+        self.device = device
+        self.pc_frame = None
+        self.points = None
+        self.path = {'poses': None, 'orients': None}
+        self.path_frame = None
+        self.publish_rewards_cloud = publish_rewards_cloud
 
+        ## Get trajectory optimization parameters values
+        self.n_opt_steps = rospy.get_param('traj_opt/opt_steps', 10)
+        self.smooth_weight = rospy.get_param('traj_opt/smooth_weight', 14.0)
+        self.length_weight = rospy.get_param('traj_opt/length_weight', 0.02)
+        self.lr_pose = rospy.get_param('traj_opt/lr_pose', 0.1)
+        self.lr_quat = rospy.get_param('traj_opt/lr_quat', 0.0)
 
-def load_data(index=None):
-    # Set paths
-    if index is None:
-        index = np.random.choice(range(0, 98))
-    print(f"Sequence number: {index}")
-    points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
-    pts_np = np.load(points_filename)['pts'].transpose()
+        self.pc_topic = pc_topic
+        print("Subscribing to " + self.pc_topic)
 
-    # make sure the point cloud is of (N x 3) shape:
-    if pts_np.shape[1] > pts_np.shape[0]:
-        pts_np = pts_np.transpose()
+        self.input_path_topic = input_path_topic
+        print("Subscribing to " + self.input_path_topic)
 
-    # positions: (x, y, z) for each waypoint
-    poses_filename = os.path.join(FE_PATH, f"data/paths/path_poses_{index}.npz")
-    poses_np = np.load(poses_filename)['poses']
+        points_sub = message_filters.Subscriber(self.pc_topic, PointCloud2)
+        path_sub = message_filters.Subscriber(self.input_path_topic, Path)
 
-    # orientations: quaternion for each waypoint
-    xyzw = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
-    quats_wxyz_np = np.asarray([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=np.float32)
-    for _ in range(len(poses_np) - 1):
-        quats_wxyz_np = np.vstack([quats_wxyz_np, np.asarray([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=np.float32)])
-    return pts_np, poses_np, quats_wxyz_np
+        ts = message_filters.ApproximateTimeSynchronizer([points_sub, path_sub], 10, slop=0.5)
+        ts.registerCallback(self.callback)
 
+    def get_data(self, pc_msg, path_msg):
+        # get point cloud tensor from ros msg
+        pts_np = pointcloud2_to_xyz_array(pc_msg)
+        points = torch.from_numpy(pts_np).float().to(self.device)
 
-## Get parameters values
-pub_sample = rospy.get_param('traj_opt/pub_sample', 10)
-N_steps = rospy.get_param('traj_opt/opt_steps', 400)
-smooth_weight = rospy.get_param('traj_opt/smooth_weight', 14.0)
-length_weight = rospy.get_param('traj_opt/length_weight', 0.02)
-lr_pose = rospy.get_param('traj_opt/lr_pose', 0.1)
-lr_quat = rospy.get_param('traj_opt/lr_quat', 0.0)
+        # get path poses and orients tensors from ros msg
+        poses = []
+        orients = []
+        for i in range(len(path_msg.poses)):
+            pose = path_msg.poses[i]
+            poses.append(np.array([pose.pose.position.x,
+                                   pose.pose.position.y,
+                                   pose.pose.position.z]))
 
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    torch.cuda.set_device(device)
-else:
-    device = torch.device("cpu")
+            orients.append(np.array([pose.pose.orientation.w,
+                                     pose.pose.orientation.x,
+                                     pose.pose.orientation.y,
+                                     pose.pose.orientation.z]))
 
-if __name__ == "__main__":
-    rospy.init_node('camera_traj_optimization')
+        poses = torch.from_numpy(np.asarray(poses)).float().to(self.device)
+        orients = torch.from_numpy(np.asarray(orients)).float().to(self.device)
+        return points, poses, orients
 
-    # Load the point cloud and initial trajectory to optimize
-    index = 3  # np.random.choice(range(0, 15))  # 0-98 or None - for random
-    pts_np, poses_np, quats_wxyz_np = load_data(index=index)
+    def init_model(self):
+        model = ModelTraj(points=self.points,
+                          wps_poses=self.path['poses'],
+                          wps_quats=self.path['orients'],
+                          device=self.device).to(self.device)
 
-    points = torch.tensor(pts_np, dtype=torch.float32).to(device)
-    poses_0 = torch.from_numpy(poses_np).float().to(device)
-    quats_wxyz_0 = torch.from_numpy(quats_wxyz_np).float().to(device)
+        optimizer = torch.optim.Adam([
+            {'params': list([model.poses]), 'lr': self.lr_pose},
+            {'params': list([model.quats]), 'lr': self.lr_quat},
+        ])
+        return model, optimizer
 
-    ## Initialize a model
-    model = ModelTraj(points=points,
-                      wps_poses=poses_0,
-                      wps_quats=quats_wxyz_0,
-                      smoothness_weight=smooth_weight, traj_length_weight=length_weight).to(device)
+    def quat_wxyz_to_xyzw(self, quat):
+        return torch.tensor([quat[1], quat[2], quat[3], quat[0]], device=self.device)
 
-    # Create an optimizer. Here we are using Adam and pass in the parameters of the model
-    decayRate = 0.9  # decayRate = 0.9, lr_pose = 0.15
-    optimizer = torch.optim.Adam([
-        {'params': list([model.poses]), 'lr': lr_pose},
-        {'params': list([model.quats]), 'lr': lr_quat},
-    ])
-    lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
+    def callback(self, pc_msg, path_msg):
+        # convert ros msgs to tensors
+        self.points, self.path['poses'], self.path['orients'] = self.get_data(pc_msg, path_msg)
 
-    ## Run optimization loop
-    FIRST_RECORD = True
-    reward0 = None
-    smooth_loss0 = None
-    OPTIMIZATION_COMPLETE = False
-    N_optimal = N_steps
-    REWARDS_TH = 1.01
-    SMOOTHNESS_TH = 0.9
+        # initialize a model
+        model, optimizer = self.init_model()
 
-    t_step = 0.0
-    t_pub = 0.0
-    debug = True
-    fig = plt.figure(figsize=(16, 8))
-    plt.grid()
-    log = {'visibility': [],
-           'smoothness': []}
-    for i in tqdm(range(N_steps)):
-        if rospy.is_shutdown():
-            plt.close('all')
-            break
-        # Optimization step
-        t0 = time()
-        optimizer.zero_grad()
-        loss = model(debug=debug)
-        t1 = time()
-        loss.backward()
-        optimizer.step()
-        if i % int(N_steps // 10) == 0:
-            lr_scheduler.step()
+        # optimization loop
+        t_step = 0.0
+        for i in tqdm(range(self.n_opt_steps)):
+            t0 = time()
+            # optimization step: ~125 msec
+            optimizer.zero_grad()
+            loss = model()
+            loss.backward()
+            optimizer.step()
+            t_step += 1000 * (time() - t0)
 
-        debug = False
-        t_step += (time() - t0) / N_steps
+        print(f'Optimization step took {t_step / self.n_opt_steps} msec')
+        print(f'Input point cloud size: {self.points.size()}')
 
-        ## Data publishing, debugging and visualization
-        if i % pub_sample == 0:
-            t2 = time()
-            # debug = True
-            # if debug:
-            #     print(f'Gradient backprop took: {1000 * (time() - t1)} msec')
-            # for key in model.loss:
-            #     print(f"{key} loss: {model.loss[key]}")
-            if FIRST_RECORD:
-                reward0 = torch.mean(model.rewards)
-                smooth_loss0 = model.loss['smooth']
-                FIRST_RECORD = False
-            # print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
+        # publish optimized path with positions and orientations
+        self.path_frame = path_msg.header.frame_id  # map
+        print(f'Publishing optimized path in frame {self.path_frame}')
+        poses_to_pub = model.poses.detach()
+        quats_to_pub = [self.quat_wxyz_to_xyzw(quat / torch.linalg.norm(quat)) for quat in model.quats.detach()]
+        publish_path(poses_to_pub, quats_to_pub,
+                     topic_name=self.input_path_topic+'/optimized',
+                     frame_id=self.path_frame)
 
-            log['visibility'].append(torch.mean(model.rewards) / reward0)
-            log['smoothness'].append(smooth_loss0 / model.loss['smooth'])
-            plt.cla()
-            plt.subplot(1,2,1)
-            # plt.grid()
-            plt.title('Visibility reward gain: R / R0')
-            plt.ylabel('R / R0')
-            plt.xlabel('opt steps')
-            plt.plot(log['visibility'], color='b')
-            if OPTIMIZATION_COMPLETE:
-                plt.axvline(N_optimal, 0, 1)
-
-            plt.subplot(1,2,2)
-            # plt.grid()
-            plt.title('Trajectory smoothness')
-            plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
-            plt.xlabel('opt steps')
-            plt.plot(log['smoothness'], color='b')
-            if OPTIMIZATION_COMPLETE:
-                plt.axvline(N_optimal, 0, 1)
-
-            plt.pause(0.01)
-            plt.draw()
-
-            if not OPTIMIZATION_COMPLETE and \
-                   log['visibility'][-1] > REWARDS_TH and \
-                   log['smoothness'][-1] > SMOOTHNESS_TH:
-                OPTIMIZATION_COMPLETE = True
-                N_optimal = i
-                print(f'Found optimal trajectory after {N_optimal} steps')
-
-            # publish ROS msgs
+        if self.publish_rewards_cloud:
+            # publish colored point cloud for debugging
+            self.pc_frame = pc_msg.header.frame_id  # map
             intensity = model.rewards.detach().unsqueeze(1).cpu().numpy()
             # print(np.min(intensity), np.mean(intensity), np.max(intensity))
-            points = np.concatenate([pts_np, intensity], axis=1)  # add observations for pts intensity visualization
-            publish_pointcloud(points, '/pts', rospy.Time.now(), 'world')
-            quats_to_pub_0 = [quat_wxyz_to_xyzw(quat / torch.linalg.norm(quat)) for quat in quats_wxyz_0]
-            publish_path(poses_np.tolist(), quats_to_pub_0, topic_name='/path/initial', frame_id='world')
+            pts_np = self.points.cpu().numpy()
+            points = np.concatenate([pts_np, intensity], axis=1)  # add rewards for pts intensity visualization
+            publish_pointcloud(points,
+                               topic_name=self.pc_topic+'/rewards',
+                               stamp=rospy.Time.now(),
+                               frame_id=self.pc_frame)
 
-            # publish path with positions and orientations
-            poses_to_pub = model.poses.detach()
-            quats_to_pub = [quat_wxyz_to_xyzw(quat / torch.linalg.norm(quat)) for quat in model.quats.detach()]
-            publish_path(poses_to_pub, quats_to_pub, topic_name='/path/optimized', frame_id='world')
 
-            t_pub += (time() - t2) / N_steps * pub_sample
-
-    print(f'Mean optimization step time: {1000 * t_step} msec')
-    print(f'Mean publication time: {1000 * t_pub} msec')
+if __name__ == '__main__':
+    rospy.init_node('trajopt_node')
+    proc = TrajOpt(pc_topic=rospy.get_param('traj_opt/point_cloud_topic', '/final_cost_cloud'),
+                   input_path_topic=rospy.get_param('traj_opt/input_path_topic', '/path'),
+                   publish_rewards_cloud=rospy.get_param('traj_opt/publish_rewards_cloud', False))
+    rospy.spin()

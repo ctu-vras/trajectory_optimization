@@ -14,10 +14,14 @@ import tf
 if __name__ == "__main__":
     rospy.init_node('pose_publisher')
     # Define initial position to optimize
-    trans = np.array([9.0, 2.0, 0.0])
+    trans = np.array([rospy.get_param('pose_publisher/x', 9.0),
+                      rospy.get_param('pose_publisher/y', 2.0),
+                      rospy.get_param('pose_publisher/z', 0.0)])
 
-    # quat_xyzw = tf.transformations.quaternion_from_euler(0.0, np.pi / 2, np.pi / 3)
-    quat_xyzw = tf.transformations.quaternion_from_euler(0.0, np.pi/2, 0.0)
+    quat_xyzw = tf.transformations.quaternion_from_euler(
+                      rospy.get_param('pose_publisher/roll', 0.0),
+                      rospy.get_param('pose_publisher/pitch', 0.0),
+                      rospy.get_param('pose_publisher/yaw', 0.0))
 
     # Run optimization loop
     rate = rospy.Rate(rospy.get_param('pose_publisher/rate', 1))

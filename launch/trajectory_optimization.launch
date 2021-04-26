@@ -1,23 +1,56 @@
 <?xml version="1.0"?>
 
 <launch>
-    <arg name="rviz_config" default="traj_opt"/>
+    <arg name="rviz_config" default="traj_opt_subt_sim"/>
     <arg name="rviz" default="true"/>
+    <arg name="filter_input_point_cloud" default="true"/>
 
+    <!-- bagfile input topics -->
+<!--     <arg name="point_cloud_topic" default="/final_cost_cloud"/> -->
+<!--     <arg name="input_path_topic" default="/path" /> -->
+
+    <!-- subt sim input topics -->
+    <arg name="point_cloud_topic" default="/X1/local_map" />
+    <arg name="input_path_topic" default="/X1/path" />
+
+    <arg name="publish_rewards_cloud" default="true" />
     <param name="use_sim_time" value="false"/>
 
+    <!-- voxels filtering -->
+    <include if="$(arg filter_input_point_cloud)"
+             file="$(find trajectory_optimization)/launch/voxels_filtering.launch">
+        <arg name="input_point_cloud_topic" value="$(arg point_cloud_topic)" />
+        <arg name="output_point_cloud_topic" value="$(arg point_cloud_topic)/filtered" />
+        <arg name="filter_limit_min" value="-25.0" />
+        <arg name="filter_limit_max" value="25.0" />
+        <arg name="leaf_size" value="0.2" />
+    </include>
+
+    <!-- trajectory optimization node -->
     <node name="traj_opt"
           pkg="trajectory_optimization"
           type="trajectory_optimization.py" output="screen">
 
-          <param name="opt_steps" type="int" value="100" />
-          <param name="pub_sample" type="int" value="1" />
-          <param name="smooth_weight" type="double" value="28.0" />
-          <param name="length_weight" type="double" value="0.02" />
-          <param name="lr_pose" type="double" value="0.15" />
-          <param name="lr_quat" type="double" value="0.0" />
+          <param name="point_cloud_topic"
+                 type="string"
+                 value="$(arg point_cloud_topic)"
+                 unless="$(eval filter_input_point_cloud==true)"/>
+          <param name="point_cloud_topic"
+                 type="string"
+                 value="$(arg point_cloud_topic)/filtered"
+                 unless="$(eval filter_input_point_cloud==false)"/>
 
+          <param name="input_path_topic" type="string" value="$(arg input_path_topic)" />
+          <param name="publish_rewards_cloud" type="bool" value="$(arg publish_rewards_cloud)" />
+          <param name="opt_steps" type="int" value="30" />
+          <param name="smooth_weight" type="double" value="14.0" />
+          <param name="length_weight" type="double" value="0.02" />
+          <param name="lr_pose" type="double" value="0.1" />
+          <param name="lr_quat" type="double" value="0.0" />
     </node>
 
-    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
+    <!-- rviz -->
+    <node if="$(arg rviz)"
+          name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find trajectory_optimization)/config/$(arg rviz_config).rviz"/>
 </launch>
