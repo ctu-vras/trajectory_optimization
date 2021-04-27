@@ -10,10 +10,10 @@
           pkg="trajectory_optimization"
           type="pose_optimization_sample.py" output="screen">
 
-          <param name="opt_steps" type="int" value="30" />
-          <param name="pub_sample" type="int" value="1" />
-          <param name="lr_pose" type="double" value="1.0" />
-          <param name="lr_quat" type="double" value="0.0" />
+          <param name="opt_steps" type="int" value="500" />
+          <param name="pub_sample" type="int" value="10" />
+          <param name="lr_pose" type="double" value="0.05" />
+          <param name="lr_quat" type="double" value="0.02" />
 
     </node>
 

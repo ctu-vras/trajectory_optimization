@@ -310,11 +310,9 @@ def publish_path(path_list, orient_list=None, topic_name='/path', frame_id='worl
     pub.publish(path)
 
 
-def load_intrinsics(device=torch.device('cuda')):
+def load_intrinsics(device=torch.device('cuda:0')):
     width, height = 1232., 1616.
-    K = torch.tensor([[758.03967, 0., 621.46572, 0.],
-                      [0., 761.62359, 756.86402, 0.],
-                      [0., 0., 1., 0.],
-                      [0., 0., 0., 1.]], dtype=torch.float32).to(device)
-    K = K.unsqueeze(0)
+    K = torch.tensor([[758.03967, 0.,        621.46572],
+                      [0.,        761.62359, 756.86402],
+                      [0.,        0.,        1.]], dtype=torch.float32).to(device)
     return K, width, height

@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Points
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -66,10 +66,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 1
+      Max Intensity: 0.9999998807907104
       Min Color: 0; 0; 0
       Min Intensity: 0.5
       Name: Points
@@ -83,7 +83,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -283,25 +283,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 17.774444580078125
+      Distance: 18.51473617553711
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 7.433021545410156
-        Y: 6.0898027420043945
-        Z: 1.6266744751192164e-6
+        X: 5.554899215698242
+        Y: 4.205888271331787
+        Z: -7.910068234195933e-6
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9847979545593262
+      Pitch: 0.7047982811927795
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.1766982078552246
+      Yaw: 2.8816957473754883
     Saved: ~
 Window Geometry:
   Displays:

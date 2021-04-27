@@ -19,7 +19,7 @@
         <param name="output_topic" type="string" value="$(arg pose_topic)" />
         <param name="rate" type="double" value="$(arg rate)" />
         <rosparam>
-              x: 9.0
+              x: 6.0
               y: 2.0
               z: 0.0
               roll: 0.0
@@ -54,8 +54,8 @@
           <param name="rate" type="double" value="$(arg rate)" />
           <rosparam>
               opt_steps: 100
-              lr_pose: 0.1
-              lr_quat: 0.0
+              lr_pose: 0.05
+              lr_quat: 0.02
           </rosparam>
     </node>
 

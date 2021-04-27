@@ -12,10 +12,10 @@
 
           <param name="opt_steps" type="int" value="100" />
           <param name="pub_sample" type="int" value="1" />
-          <param name="smooth_weight" type="double" value="28.0" />
+          <param name="smooth_weight" type="double" value="10.0" />
           <param name="length_weight" type="double" value="0.02" />
           <param name="lr_pose" type="double" value="0.15" />
-          <param name="lr_quat" type="double" value="0.0" />
+          <param name="lr_quat" type="double" value="0.02" />
 
     </node>
 

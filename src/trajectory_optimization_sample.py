@@ -19,6 +19,7 @@ import rospy
 import tf
 from tools import publish_pointcloud
 from tools import publish_path
+from tools import load_intrinsics
 
 
 def quat_wxyz_to_xyzw(quat):
@@ -74,10 +75,14 @@ if __name__ == "__main__":
     poses_0 = torch.from_numpy(poses_np).float().to(device)
     quats_wxyz_0 = torch.from_numpy(quats_wxyz_np).float().to(device)
 
+    K, img_width, img_height = load_intrinsics(device=device)
+
     ## Initialize a model
     model = ModelTraj(points=points,
                       wps_poses=poses_0,
                       wps_quats=quats_wxyz_0,
+                      intrins=K,
+                      img_width=img_width, img_height=img_height,
                       smoothness_weight=smooth_weight, traj_length_weight=length_weight).to(device)
 
     # Create an optimizer. Here we are using Adam and pass in the parameters of the model
@@ -137,27 +142,26 @@ if __name__ == "__main__":
 
             log['visibility'].append(torch.mean(model.rewards) / reward0)
             log['smoothness'].append(smooth_loss0 / model.loss['smooth'])
-            plt.cla()
-            plt.subplot(1,2,1)
-            # plt.grid()
-            plt.title('Visibility reward gain: R / R0')
-            plt.ylabel('R / R0')
-            plt.xlabel('opt steps')
-            plt.plot(log['visibility'], color='b')
-            if OPTIMIZATION_COMPLETE:
-                plt.axvline(N_optimal, 0, 1)
-
-            plt.subplot(1,2,2)
-            # plt.grid()
-            plt.title('Trajectory smoothness')
-            plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
-            plt.xlabel('opt steps')
-            plt.plot(log['smoothness'], color='b')
-            if OPTIMIZATION_COMPLETE:
-                plt.axvline(N_optimal, 0, 1)
-
-            plt.pause(0.01)
-            plt.draw()
+            # plt.cla()
+            # plt.subplot(1,2,1)
+            # # plt.grid()
+            # plt.title('Visibility reward gain: R / R0')
+            # plt.ylabel('R / R0')
+            # plt.xlabel('opt steps')
+            # plt.plot(log['visibility'], color='b')
+            # if OPTIMIZATION_COMPLETE:
+            #     plt.axvline(N_optimal, 0, 1)
+            #
+            # plt.subplot(1,2,2)
+            # # plt.grid()
+            # plt.title('Trajectory smoothness')
+            # plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
+            # plt.xlabel('opt steps')
+            # plt.plot(log['smoothness'], color='b')
+            # if OPTIMIZATION_COMPLETE:
+            #     plt.axvline(N_optimal, 0, 1)
+            # plt.pause(0.01)
+            # plt.draw()
 
             if not OPTIMIZATION_COMPLETE and \
                    log['visibility'][-1] > REWARDS_TH and \

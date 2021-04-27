@@ -14,7 +14,7 @@ import tf
 if __name__ == "__main__":
     rospy.init_node('pose_publisher')
     # Define initial position to optimize
-    trans = np.array([rospy.get_param('pose_publisher/x', 9.0),
+    trans = np.array([rospy.get_param('pose_publisher/x', 6.0),
                       rospy.get_param('pose_publisher/y', 2.0),
                       rospy.get_param('pose_publisher/z', 0.0)])
 

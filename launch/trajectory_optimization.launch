@@ -46,7 +46,7 @@
           <param name="smooth_weight" type="double" value="14.0" />
           <param name="length_weight" type="double" value="0.02" />
           <param name="lr_pose" type="double" value="0.1" />
-          <param name="lr_quat" type="double" value="0.0" />
+          <param name="lr_quat" type="double" value="0.05" />
     </node>
 
     <!-- rviz -->

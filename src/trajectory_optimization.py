@@ -18,6 +18,7 @@ import tf, tf2_ros
 import message_filters
 from tools import publish_path
 from tools import publish_pointcloud
+from tools import load_intrinsics
 from pointcloud_utils import pointcloud2_to_xyz_array
 
 
@@ -34,6 +35,8 @@ class TrajOpt:
         self.path = {'poses': None, 'orients': None}
         self.path_frame = None
         self.publish_rewards_cloud = publish_rewards_cloud
+
+        self.K, self.img_width, self.img_height = load_intrinsics(device=self.device)
 
         ## Get trajectory optimization parameters values
         self.n_opt_steps = rospy.get_param('traj_opt/opt_steps', 10)
@@ -81,6 +84,8 @@ class TrajOpt:
         model = ModelTraj(points=self.points,
                           wps_poses=self.path['poses'],
                           wps_quats=self.path['orients'],
+                          intrins=self.K,
+                          img_width=self.img_width, img_height=self.img_height,
                           device=self.device).to(self.device)
 
         optimizer = torch.optim.Adam([
@@ -92,6 +97,35 @@ class TrajOpt:
     def quat_wxyz_to_xyzw(self, quat):
         return torch.tensor([quat[1], quat[2], quat[3], quat[0]], device=self.device)
 
+    def run(self, model, optimizer, rewards_th=1.25, smoothness_th=0.9):
+        # optimization loop
+        FIRST_RECORD = True
+        reward0 = 1e-6
+        smooth_loss0 = 0.0
+        t_step = 0.0
+        for i in tqdm(range(self.n_opt_steps)):
+            t0 = time()
+            # optimization step: ~125 msec
+            optimizer.zero_grad()
+            loss = model()
+            if FIRST_RECORD:
+                reward0 = torch.mean(model.rewards)
+                smooth_loss0 = model.loss['smooth']
+                FIRST_RECORD = False
+            loss.backward()
+            optimizer.step()
+            t_step += 1000 * (time() - t0)
+
+            visibility_gain = torch.mean(model.rewards) / reward0
+            smooth_gain = smooth_loss0 / model.loss['smooth']
+            if visibility_gain > rewards_th and \
+                    smooth_gain > smoothness_th:
+                print(f'Found optimal trajectory with rewards coef={visibility_gain} after {i} steps')
+                break
+
+        print(f'Optimization step took {t_step / i} msec')
+        print(f'Input point cloud size: {self.points.size()}')
+
     def callback(self, pc_msg, path_msg):
         # convert ros msgs to tensors
         self.points, self.path['poses'], self.path['orients'] = self.get_data(pc_msg, path_msg)
@@ -99,19 +133,7 @@ class TrajOpt:
         # initialize a model
         model, optimizer = self.init_model()
 
-        # optimization loop
-        t_step = 0.0
-        for i in tqdm(range(self.n_opt_steps)):
-            t0 = time()
-            # optimization step: ~125 msec
-            optimizer.zero_grad()
-            loss = model()
-            loss.backward()
-            optimizer.step()
-            t_step += 1000 * (time() - t0)
-
-        print(f'Optimization step took {t_step / self.n_opt_steps} msec')
-        print(f'Input point cloud size: {self.points.size()}')
+        self.run(model, optimizer, rewards_th=1.25, smoothness_th=0.9)
 
         # publish optimized path with positions and orientations
         self.path_frame = path_msg.header.frame_id  # map

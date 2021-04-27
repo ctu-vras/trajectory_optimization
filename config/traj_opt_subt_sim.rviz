@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Local PointCloud2
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -58,13 +58,51 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        X1:
+          Value: true
+        X1/base_link:
+          Value: true
+        X1/base_link/front_laser:
+          Value: true
+        X1/base_link/front_realsense:
+          Value: true
+        X1/base_link/imu_sensor:
+          Value: true
+        X1/base_link/left_realsense:
+          Value: true
+        X1/base_link/rear_realsense:
+          Value: true
+        X1/base_link/right_realsense:
+          Value: true
+        X1/front_left_wheel_link:
+          Value: true
+        X1/front_right_wheel_link:
+          Value: true
+        X1/map:
+          Value: true
+        X1/odom:
+          Value: true
+        X1/rear_left_wheel_link:
+          Value: true
+        X1/rear_right_wheel_link:
+          Value: true
+        X1_ground_truth:
+          Value: true
+        subt:
+          Value: true
+        world:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        world:
+          X1_ground_truth:
+            {}
+          subt:
+            {}
       Update Interval: 0
       Value: true
     - Class: rviz/Image
@@ -118,7 +156,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Pose Color: 255; 85; 255
-      Pose Style: None
+      Pose Style: Axes
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
@@ -277,25 +315,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 39.45995330810547
+      Distance: 34.13214111328125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 16.088560104370117
-        Y: 5.515063285827637
-        Z: 2.3908188343048096
+        X: 10.161330223083496
+        Y: -0.6021100282669067
+        Z: 2.8970389366149902
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.44039857387542725
+      Pitch: 0.9103984236717224
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.4435858726501465
+      Yaw: 5.528585433959961
     Saved: ~
 Window Geometry:
   Displays:

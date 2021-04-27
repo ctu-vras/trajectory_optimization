@@ -29,7 +29,7 @@ from tools import publish_image
 pub_sample = rospy.get_param('pose_opt/pub_sample', 10)
 N_steps = rospy.get_param('pose_opt/opt_steps', 400)
 lr_pose = rospy.get_param('pose_opt/lr_pose', 0.1)
-lr_quat = rospy.get_param('pose_opt/lr_quat', 0.0)
+lr_quat = rospy.get_param('pose_opt/lr_quat', 0.1)
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -46,8 +46,7 @@ if __name__ == "__main__":
     K, img_width, img_height = load_intrinsics(device=device)
 
     # Set paths to data
-    index = 90
-    # index = np.random.choice(range(0, 98))
+    index = np.random.choice(range(0, 30))
     points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")
     pts_np = np.load(points_filename)['pts']
     # make sure the point cloud is of (N x 3) shape:
@@ -56,12 +55,12 @@ if __name__ == "__main__":
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
 
     # Initial position to optimize
-    trans0 = torch.tensor([[9.0, 2.0, 0.0]], dtype=torch.float32)
+    trans0 = torch.tensor([[6.0, 2.0, 0.0]], dtype=torch.float32)
 
     # xyzw = torch.tensor([0., 0., 0., 1.], dtype=torch.float32)
-    xyzw = tf.transformations.quaternion_from_euler(0.0, np.pi/2, np.pi/3)
-    q0 = torch.tensor([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=torch.float32)
-    # q0 = random_quaternions(1)
+    # xyzw = tf.transformations.quaternion_from_euler(0.0, np.pi/2, 0.0)
+    # q0 = torch.tensor([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=torch.float32)
+    q0 = random_quaternions(1)
 
     # Initialize a model
     model = ModelPose(points=points,
@@ -91,7 +90,7 @@ if __name__ == "__main__":
         ## Optimization step
         t0 = time()
         optimizer.zero_grad()
-        points_visible, loss = model(debug=debug)
+        loss = model(debug=debug)
         loss.backward()
         optimizer.step()
         if i % int(N_steps//10) == 0:
@@ -103,27 +102,13 @@ if __name__ == "__main__":
         debug = False
         if i % pub_sample == 0:
             t2 = time()
-            debug = True
-
-            # render point cloud image
-            if points_visible.size()[0] > 0:
-                image = render_pc_image(points_visible, K, img_height, img_width, device=device)
-
-                image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
-                publish_image(image_vis, topic='/pc_image')
-                # cv2.imshow('Point cloud in camera FOV', image_vis)
-                # cv2.waitKey(3)
-
-            # print(f'Loss: {loss.item()}')
-            # print(f'Number of visible points: {points_visible.size()[0]}')
+            # debug = True
 
             # publish ROS msgs
             intensity = model.observations.unsqueeze(1).detach().cpu().numpy()
             pts_rewards = np.concatenate([pts_np, intensity],
                                          axis=1)  # add observations for pts intensity visualization
             # pts_rewards = pts_np
-            points_visible_np = points_visible.detach().cpu().numpy()
-            publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
             publish_pointcloud(pts_rewards, '/pts', rospy.Time.now(), 'world')
             quat = F.normalize(model.quat).squeeze()
             quat = (quat[1], quat[2], quat[3], quat[0])

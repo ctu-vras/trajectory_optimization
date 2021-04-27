@@ -96,7 +96,7 @@ class PoseOpt:
         ])
         return model, optimizer
 
-    def publish_data(self, pts_np=None, points_visible=None):
+    def publish_data(self, pts_np=None):
         # publish optimized position and orientation
         trans = self.model.trans.squeeze()
         quat = F.normalize(self.model.quat).squeeze()
@@ -110,20 +110,6 @@ class PoseOpt:
             pts_rewards = np.concatenate([pts_np, intensity],
                                           axis=1)  # add observations for pts intensity visualization
             publish_pointcloud(pts_rewards, self.pc_topic+'/rewards', rospy.Time.now(), self.pc_frame)
-
-        if points_visible is not None:
-            # render point cloud image
-            if points_visible.size()[0] > 0:
-                image = render_pc_image(points_visible,
-                                        self.K,
-                                        self.img_height, self.img_width,
-                                        device=self.device)
-
-                image_vis = cv2.resize(image.detach().cpu().numpy(), (600, 800))
-                publish_image(image_vis, topic='/pc_image')
-
-            points_visible_np = points_visible.detach().cpu().numpy()
-            publish_pointcloud(points_visible_np, '/pts_visible', rospy.Time.now(), 'camera_frame')
 
     def callback(self, pc_msg, pose_msg):
         # convert ros msgs to tensors
@@ -145,15 +131,15 @@ class PoseOpt:
             t0 = time()
             # optimization step: ~10 msec
             optimizer.zero_grad()
-            points_visible, loss = self.model(debug=debug)
+            loss = self.model(debug=debug)
             loss.backward()
             optimizer.step()
             t_step += 1000 * (time() - t0)
             debug = False
 
             if i % int(self.n_opt_steps // num_pub_samples) == 0:  # publish num_pub_samples times
-                self.publish_data(pts_np, points_visible)
-                # self.publish_data(pts_np=None, points_visible=None)
+                self.publish_data(pts_np)
+                # self.publish_data(pts_np=None)
                 debug = True
 
         print(f'Optimization step took {t_step / self.n_opt_steps} msec')
