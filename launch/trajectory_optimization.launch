@@ -43,9 +43,9 @@
           <param name="input_path_topic" type="string" value="$(arg input_path_topic)" />
           <param name="publish_rewards_cloud" type="bool" value="$(arg publish_rewards_cloud)" />
           <param name="opt_steps" type="int" value="30" />
-          <param name="smooth_weight" type="double" value="14.0" />
+          <param name="smooth_weight" type="double" value="28.0" />
           <param name="length_weight" type="double" value="0.02" />
-          <param name="lr_pose" type="double" value="0.1" />
+          <param name="lr_pose" type="double" value="0.12" />
           <param name="lr_quat" type="double" value="0.05" />
     </node>
 

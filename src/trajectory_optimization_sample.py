@@ -43,10 +43,10 @@ def load_data(index=None):
     poses_np = np.load(poses_filename)['poses']
 
     # orientations: quaternion for each waypoint
-    xyzw = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
-    quats_wxyz_np = np.asarray([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=np.float32)
+    x, y, z, w = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+    quats_wxyz_np = np.asarray([[w, x, y, z]], dtype=np.float32)
     for _ in range(len(poses_np) - 1):
-        quats_wxyz_np = np.vstack([quats_wxyz_np, np.asarray([[xyzw[3], xyzw[0], xyzw[1], xyzw[2]]], dtype=np.float32)])
+        quats_wxyz_np = np.vstack([quats_wxyz_np, np.asarray([[w, x, y, z]], dtype=np.float32)])
     return pts_np, poses_np, quats_wxyz_np
 
 
@@ -56,7 +56,7 @@ N_steps = rospy.get_param('traj_opt/opt_steps', 400)
 smooth_weight = rospy.get_param('traj_opt/smooth_weight', 14.0)
 length_weight = rospy.get_param('traj_opt/length_weight', 0.02)
 lr_pose = rospy.get_param('traj_opt/lr_pose', 0.1)
-lr_quat = rospy.get_param('traj_opt/lr_quat', 0.0)
+lr_quat = rospy.get_param('traj_opt/lr_quat', 0.02)
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
 
     # Load the point cloud and initial trajectory to optimize
-    index = 3  # np.random.choice(range(0, 15))  # 0-98 or None - for random
+    index = np.random.choice(range(0, 15))  # 0-98 or None - for random
     pts_np, poses_np, quats_wxyz_np = load_data(index=index)
 
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     smooth_loss0 = None
     OPTIMIZATION_COMPLETE = False
     N_optimal = N_steps
-    REWARDS_TH = 1.01
+    REWARDS_TH = 1.1
     SMOOTHNESS_TH = 0.9
 
     t_step = 0.0
@@ -130,38 +130,37 @@ if __name__ == "__main__":
         if i % pub_sample == 0:
             t2 = time()
             # debug = True
-            # if debug:
-            #     print(f'Gradient backprop took: {1000 * (time() - t1)} msec')
-            # for key in model.loss:
-            #     print(f"{key} loss: {model.loss[key]}")
+            if debug:
+                print(f'Gradient backprop took: {1000 * (time() - t1)} msec')
+
+                plt.cla()
+                plt.subplot(1,2,1)
+                # plt.grid()
+                plt.title('Visibility reward gain: R / R0')
+                plt.ylabel('R / R0')
+                plt.xlabel('opt steps')
+                plt.plot(log['visibility'], color='b')
+                if OPTIMIZATION_COMPLETE:
+                    plt.axvline(N_optimal, 0, 1)
+
+                plt.subplot(1,2,2)
+                # plt.grid()
+                plt.title('Trajectory smoothness')
+                plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
+                plt.xlabel('opt steps')
+                plt.plot(log['smoothness'], color='b')
+                if OPTIMIZATION_COMPLETE:
+                    plt.axvline(N_optimal, 0, 1)
+                plt.pause(0.01)
+                plt.draw()
+
             if FIRST_RECORD:
                 reward0 = torch.mean(model.rewards)
                 smooth_loss0 = model.loss['smooth']
                 FIRST_RECORD = False
-            # print(f"Trajectory visibility score: {torch.mean(model.rewards) / reward0}")
 
             log['visibility'].append(torch.mean(model.rewards) / reward0)
             log['smoothness'].append(smooth_loss0 / model.loss['smooth'])
-            # plt.cla()
-            # plt.subplot(1,2,1)
-            # # plt.grid()
-            # plt.title('Visibility reward gain: R / R0')
-            # plt.ylabel('R / R0')
-            # plt.xlabel('opt steps')
-            # plt.plot(log['visibility'], color='b')
-            # if OPTIMIZATION_COMPLETE:
-            #     plt.axvline(N_optimal, 0, 1)
-            #
-            # plt.subplot(1,2,2)
-            # # plt.grid()
-            # plt.title('Trajectory smoothness')
-            # plt.ylabel('Loss_{smooth}0 / Loss_{smooth}')
-            # plt.xlabel('opt steps')
-            # plt.plot(log['smoothness'], color='b')
-            # if OPTIMIZATION_COMPLETE:
-            #     plt.axvline(N_optimal, 0, 1)
-            # plt.pause(0.01)
-            # plt.draw()
 
             if not OPTIMIZATION_COMPLETE and \
                    log['visibility'][-1] > REWARDS_TH and \

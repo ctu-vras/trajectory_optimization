@@ -7,7 +7,7 @@
     <arg name="filtered_point_cloud_topic" default="/pts/filtered" />
     <arg name="filter_input_point_cloud" default="true" />
     <arg name="pose_topic" default="/pose" />
-    <arg name="rate" default="0.5" />
+    <arg name="rate" default="0.2" />
 
     <!-- point cloud publisher -->
     <node name="pc_publisher" pkg="trajectory_optimization" type="pc_publisher.py">
@@ -18,14 +18,14 @@
     <node name="pose_publisher" pkg="trajectory_optimization" type="pose_publisher.py" output="screen">
         <param name="output_topic" type="string" value="$(arg pose_topic)" />
         <param name="rate" type="double" value="$(arg rate)" />
-        <rosparam>
-              x: 6.0
-              y: 2.0
-              z: 0.0
-              roll: 0.0
-              pitch: 0.0
-              yaw: 0.0
-          </rosparam>
+<!--        <rosparam>-->
+<!--              x: 6.0-->
+<!--              y: 2.0-->
+<!--              z: 0.0-->
+<!--              roll: 0.0-->
+<!--              pitch: 0.0-->
+<!--              yaw: 0.0-->
+<!--          </rosparam>-->
     </node>
 
     <!-- voxels filtering -->
@@ -53,8 +53,8 @@
           <param name="pose_topic" type="string" value="$(arg pose_topic)" />
           <param name="rate" type="double" value="$(arg rate)" />
           <rosparam>
-              opt_steps: 100
-              lr_pose: 0.05
+              opt_steps: 200
+              lr_pose: 0.02
               lr_quat: 0.02
           </rosparam>
     </node>

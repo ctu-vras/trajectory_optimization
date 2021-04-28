@@ -13,21 +13,19 @@ import tf
 
 if __name__ == "__main__":
     rospy.init_node('pose_publisher')
-    # Define initial position to optimize
-    trans = np.array([rospy.get_param('pose_publisher/x', 6.0),
-                      rospy.get_param('pose_publisher/y', 2.0),
-                      rospy.get_param('pose_publisher/z', 0.0)])
-
-    quat_xyzw = tf.transformations.quaternion_from_euler(
-                      rospy.get_param('pose_publisher/roll', 0.0),
-                      rospy.get_param('pose_publisher/pitch', 0.0),
-                      rospy.get_param('pose_publisher/yaw', 0.0))
-
-    # Run optimization loop
     rate = rospy.Rate(rospy.get_param('pose_publisher/rate', 1))
     while True:
         if rospy.is_shutdown():
             break
+        # Define initial position to optimize
+        trans = np.array([rospy.get_param('pose_publisher/x', np.random.random() * 5 + 15),
+                          rospy.get_param('pose_publisher/y', np.random.random() * 5 + 15),
+                          rospy.get_param('pose_publisher/z', np.random.random() * 2)])
+
+        quat_xyzw = tf.transformations.quaternion_from_euler(
+            rospy.get_param('pose_publisher/roll', np.random.random() * np.pi),
+            rospy.get_param('pose_publisher/pitch', np.random.random() * np.pi),
+            rospy.get_param('pose_publisher/yaw', np.random.random() * np.pi))
 
         publish_pose(trans, quat_xyzw, rospy.get_param('pose_publisher/output_topic', '/pose'), rospy.Time.now(), frame_id='world')
         rate.sleep()

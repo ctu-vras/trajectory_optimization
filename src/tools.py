@@ -204,17 +204,19 @@ def publish_image(img, topic='/image/compressed'):
     pub.publish(img_msg)
 
 
-def publish_odom(pose, orient, frame='/odom', topic='/odom_0'):
+def publish_odom(pose, quat, frame='/odom', topic='/odom_0'):
+    assert len(pose) == 3
+    assert len(quat) == 4
     odom_msg_0 = Odometry()
     odom_msg_0.header.stamp = rospy.Time.now()
     odom_msg_0.header.frame_id = frame
     odom_msg_0.pose.pose.position.x = pose[0]
     odom_msg_0.pose.pose.position.y = pose[1]
     odom_msg_0.pose.pose.position.z = pose[2]
-    odom_msg_0.pose.pose.orientation.x = orient[0]
-    odom_msg_0.pose.pose.orientation.y = orient[1]
-    odom_msg_0.pose.pose.orientation.z = orient[2]
-    odom_msg_0.pose.pose.orientation.w = orient[3]
+    odom_msg_0.pose.pose.orientation.x = quat[0]
+    odom_msg_0.pose.pose.orientation.y = quat[1]
+    odom_msg_0.pose.pose.orientation.z = quat[2]
+    odom_msg_0.pose.pose.orientation.w = quat[3]
     pub = rospy.Publisher(topic, Odometry, queue_size=1)
     pub.publish(odom_msg_0)
 
@@ -229,7 +231,9 @@ def publish_pointcloud(points, topic_name, stamp, frame_id):
     pub.publish(pc_msg)
 
 
-def publish_tf_pose(pose, orient, child_frame_id, frame_id="world"):
+def publish_tf_pose(pose, quat, child_frame_id, frame_id="world"):
+    assert len(pose) == 3
+    assert len(quat) == 4
     br = tf2_ros.TransformBroadcaster()
     t = TransformStamped()
     t.header.stamp = rospy.Time.now()
@@ -238,10 +242,10 @@ def publish_tf_pose(pose, orient, child_frame_id, frame_id="world"):
     t.transform.translation.x = pose[0]
     t.transform.translation.y = pose[1]
     t.transform.translation.z = pose[2]
-    t.transform.rotation.x = orient[0]
-    t.transform.rotation.y = orient[1]
-    t.transform.rotation.z = orient[2]
-    t.transform.rotation.w = orient[3]
+    t.transform.rotation.x = quat[0]
+    t.transform.rotation.y = quat[1]
+    t.transform.rotation.z = quat[2]
+    t.transform.rotation.w = quat[3]
     br.sendTransform(t)
 
 
@@ -267,7 +271,9 @@ def publish_camera_info(image_width=1232, image_height=1616,
     pub.publish(camera_info_msg)
 
 
-def to_pose_stamped(pose, orient, stamp=None, frame_id='world'):
+def to_pose_stamped(pose, quat, stamp=None, frame_id='world'):
+    assert len(pose) == 3
+    assert len(quat) == 4
     msg = PoseStamped()
     msg.header.seq = 0
     if stamp is None:
@@ -277,18 +283,19 @@ def to_pose_stamped(pose, orient, stamp=None, frame_id='world'):
     msg.pose.position.x = pose[0]
     msg.pose.position.y = pose[1]
     msg.pose.position.z = pose[2]
-    quaternion = tf.transformations.quaternion_from_euler(orient[0], orient[1], orient[2])
-    msg.pose.orientation.x = quaternion[0]
-    msg.pose.orientation.y = quaternion[1]
-    msg.pose.orientation.z = quaternion[2]
-    msg.pose.orientation.w = quaternion[3]
+    msg.pose.orientation.x = quat[0]
+    msg.pose.orientation.y = quat[1]
+    msg.pose.orientation.z = quat[2]
+    msg.pose.orientation.w = quat[3]
     msg.header.seq += 1
     msg.header.stamp = rospy.Time.now()
     return msg
 
 
-def publish_pose(pose, orient, topic_name, stamp=None, frame_id='world'):
-    msg = to_pose_stamped(pose, orient, stamp=stamp, frame_id=frame_id)
+def publish_pose(pose, quat, topic_name, stamp=None, frame_id='world'):
+    assert len(pose) == 3
+    assert len(quat) == 4
+    msg = to_pose_stamped(pose, quat, stamp=stamp, frame_id=frame_id)
     pub = rospy.Publisher(topic_name, PoseStamped, queue_size=1)
     pub.publish(msg)
 

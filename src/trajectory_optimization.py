@@ -97,7 +97,7 @@ class TrajOpt:
     def quat_wxyz_to_xyzw(self, quat):
         return torch.tensor([quat[1], quat[2], quat[3], quat[0]], device=self.device)
 
-    def run(self, model, optimizer, rewards_th=1.25, smoothness_th=0.9):
+    def run(self, model, optimizer, rewards_th=1.2, smoothness_th=0.9):
         # optimization loop
         FIRST_RECORD = True
         reward0 = 1e-6
@@ -133,7 +133,7 @@ class TrajOpt:
         # initialize a model
         model, optimizer = self.init_model()
 
-        self.run(model, optimizer, rewards_th=1.25, smoothness_th=0.9)
+        self.run(model, optimizer, rewards_th=1.2, smoothness_th=0.9)
 
         # publish optimized path with positions and orientations
         self.path_frame = path_msg.header.frame_id  # map
