@@ -2,6 +2,8 @@
 
 Perception aware trajectory optimization based on point cloud visibility estimation in a camera frustum.
 The package is implemented as a ROS node.
+For more information, please, have a look at the project:
+[https://github.com/tpet/rpz_planning](https://github.com/tpet/rpz_planning).
 
 ## Installation
 
