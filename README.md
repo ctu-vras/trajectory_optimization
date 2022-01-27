@@ -5,6 +5,8 @@ The package is implemented as a ROS node.
 For more information, please, have a look at the project:
 [https://github.com/tpet/rpz_planning](https://github.com/tpet/rpz_planning).
 
+[![](https://github.com/tpet/rpz_planning/blob/master/docs/demo.png)](https://youtu.be/0KzWxQjTqWM)
+
 ## Installation
 
 Please, follow installation instructions in
