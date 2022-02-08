@@ -66,3 +66,7 @@ is optimized with the goal to increase overal visibility score.
 ```bash
 roslaunch trajectory_optimization trajectory_optimization.launch
 ```
+
+## Reference
+
+**Trajectory Optimization using Learned Robot-Terrain Interaction Model in Exploration of Large Subterranean Environments** [PDF](https://ieeexplore.ieee.org/document/9699042), [Video](https://youtu.be/0KzWxQjTqWM), [Code](https://github.com/tpet/rpz_planning/tree/icra-2022).
