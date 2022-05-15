@@ -12,6 +12,10 @@ For more information, please, have a look at the project:
 Please, follow installation instructions in
 [INSTALL.md](https://github.com/RuslanAgishev/trajectory_optimization/blob/master/INSTALL.md)
 
+Before running the examples, download the
+[data](https://drive.google.com/drive/folders/1sMELVBemqDqCp_4_0Nr6FzQkWbflS-Hl?usp=sharing)
+and place it to the package root: `./data`
+
 ## Running
 
 ### Point cloud Visibility Estimation
