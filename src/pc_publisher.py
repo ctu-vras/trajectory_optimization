@@ -20,7 +20,7 @@ if __name__ == "__main__":
             break
 
         # Load point cloud
-        index = rospy.get_param('pc_publisher/pc_index', -1)
+        index = rospy.get_param('pc_publisher/pc_index', 10)
         if index == -1:
             index = np.random.choice(range(0, 30))
         points_filename = os.path.join(FE_PATH, f"data/points/point_cloud_{index}.npz")

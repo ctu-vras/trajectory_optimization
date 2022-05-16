@@ -68,7 +68,8 @@ if __name__ == "__main__":
     rospy.init_node('camera_traj_optimization')
 
     # Load the point cloud and initial trajectory to optimize
-    index = np.random.choice(range(0, 15))  # 0-98 or None - for random
+    # index = np.random.choice(range(0, 15))  # 0-98 or None - for random
+    index = 10
     pts_np, poses_np, quats_wxyz_np = load_data(index=index)
 
     points = torch.tensor(pts_np, dtype=torch.float32).to(device)
