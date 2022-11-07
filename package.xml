@@ -7,19 +7,19 @@
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="agishev_ruslan@mail.ru">ruslan</maintainer>
+  <maintainer email="agisrus@fel.cvut.cz">Ruslan Agishev</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
+  <license>BSD</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/trajectory_optimization</url> -->
+  <url type="website">https://github.com/ctu-vras/trajectory_optimization</url>
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
